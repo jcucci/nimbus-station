@@ -1,9 +1,9 @@
 using NimbusStation.Core;
 using NimbusStation.Providers.Azure;
 
-namespace NimbusStation.Tests.Core;
+namespace NimbusStation.Tests.Providers.Azure;
 
-public class CloudProviderTests
+public class AzureCloudProviderTests
 {
     [Fact]
     public void AzureCloudProvider_HasCorrectProviderId()
@@ -19,13 +19,16 @@ public class CloudProviderTests
     }
 
     [Fact]
-    public void AzureCloudProvider_ImplementsICloudProvider()
+    public void AzureCloudProvider_HasCorrectDisplayName()
     {
-        // Arrange & Act
+        // Arrange
         var provider = new AzureCloudProvider();
 
+        // Act
+        string displayName = provider.DisplayName;
+
         // Assert
-        Assert.IsAssignableFrom<ICloudProvider>(provider);
+        Assert.Equal("Microsoft Azure", displayName);
     }
 
     [Fact]

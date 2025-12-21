@@ -12,14 +12,3 @@ public interface IConfigurationService
     /// <returns>The loaded configuration.</returns>
     Task<NimbusConfiguration> LoadConfigurationAsync(CancellationToken cancellationToken = default);
 }
-
-/// <summary>
-/// Represents the application configuration loaded from TOML.
-/// </summary>
-public class NimbusConfiguration
-{
-    /// <summary>
-    /// Gets or sets the default cloud provider identifier.
-    /// </summary>
-    public string? DefaultProvider { get; set; }
-}

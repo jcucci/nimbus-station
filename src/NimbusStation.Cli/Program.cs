@@ -9,6 +9,9 @@ public static class Program
 {
     public static void Main(string[] args)
     {
+        // TODO: Parse and handle command-line arguments in a future version.
+        _ = args;
+
         AnsiConsole.Write(
             new FigletText("Nimbus Station")
                 .LeftJustified()
