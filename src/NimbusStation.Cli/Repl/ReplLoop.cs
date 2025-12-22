@@ -1,6 +1,7 @@
 using NimbusStation.Cli.Commands;
 using NimbusStation.Core.Aliases;
 using NimbusStation.Core.Commands;
+using NimbusStation.Core.Session;
 using Spectre.Console;
 
 namespace NimbusStation.Cli.Repl;
@@ -12,17 +13,22 @@ public sealed class ReplLoop
 {
     private readonly CommandRegistry _commandRegistry;
     private readonly IAliasResolver _aliasResolver;
+    private readonly ISessionService _sessionService;
     private readonly CommandContext _context;
+
+    private const string HistoryFileName = ".repl_history";
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReplLoop"/> class.
     /// </summary>
     /// <param name="commandRegistry">The registry that provides access to available commands.</param>
     /// <param name="aliasResolver">The resolver used to expand command aliases entered in the REPL.</param>
-    public ReplLoop(CommandRegistry commandRegistry, IAliasResolver aliasResolver)
+    /// <param name="sessionService">The session service for accessing session directories.</param>
+    public ReplLoop(CommandRegistry commandRegistry, IAliasResolver aliasResolver, ISessionService sessionService)
     {
         _commandRegistry = commandRegistry;
         _aliasResolver = aliasResolver;
+        _sessionService = sessionService;
         _context = new CommandContext();
     }
 
@@ -32,14 +38,36 @@ public sealed class ReplLoop
     /// <param name="cancellationToken">A token that can be used to cancel and stop the REPL loop.</param>
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
+        // Set up tab auto-completion
+        ReadLine.AutoCompletionHandler = new CommandAutoCompleteHandler(_commandRegistry);
+
+        // Load history for any active session at startup
+        if (_context.CurrentSession is { } initialSession)
+        {
+            LoadHistoryForSession(initialSession.TicketId);
+            _lastSessionId = initialSession.TicketId;
+        }
+
         while (!cancellationToken.IsCancellationRequested)
         {
-            var input = AnsiConsole.Prompt(
-                new TextPrompt<string>(GetPrompt())
-                    .AllowEmpty());
+            // Render the styled prompt with Spectre.Console, then use ReadLine for input with history
+            AnsiConsole.Markup(GetPrompt());
+            var input = ReadLine.Read();
+
+            // Handle Ctrl+C (ReadLine returns null)
+            if (input is null)
+            {
+                AnsiConsole.WriteLine();
+                AnsiConsole.MarkupLine("[dim]Goodbye![/]");
+                SaveHistory();
+                break;
+            }
 
             if (string.IsNullOrWhiteSpace(input))
                 continue;
+
+            // Add to history
+            ReadLine.AddHistory(input);
 
             // Expand any command aliases before processing
             var aliasResult = await _aliasResolver.ExpandAsync(input, _context.CurrentSession, cancellationToken);
@@ -64,6 +92,7 @@ public sealed class ReplLoop
             if (IsExitCommand(commandName))
             {
                 AnsiConsole.MarkupLine("[dim]Goodbye![/]");
+                SaveHistory();
                 break;
             }
 
@@ -88,6 +117,9 @@ public sealed class ReplLoop
 
                 if (!result.Success && result.Message is not null)
                     AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(result.Message)}");
+
+                // Session may have changed - handle history persistence
+                HandleSessionChange();
             }
             catch (OperationCanceledException)
             {
@@ -103,10 +135,23 @@ public sealed class ReplLoop
         }
     }
 
-    private string GetPrompt() =>
-        _context.CurrentSession is { } session
-            ? $"[green]ns[/][[[cyan]{Markup.Escape(session.TicketId)}[/]]]\u203a "
-            : "[green]ns[/]\u203a ";
+    private string GetPrompt()
+    {
+        if (_context.CurrentSession is not { } session)
+            return "[green]ns[/]\u203a ";
+
+        var prompt = $"[green]ns[/][[[cyan]{Markup.Escape(session.TicketId)}[/]]]";
+
+        // Append active context aliases
+        var context = session.ActiveContext;
+        if (context?.ActiveCosmosAlias is { } cosmosAlias)
+            prompt += $"[[[orange1]{Markup.Escape(cosmosAlias)}[/]]]";
+
+        if (context?.ActiveBlobAlias is { } blobAlias)
+            prompt += $"[[[magenta]{Markup.Escape(blobAlias)}[/]]]";
+
+        return prompt + "\u203a ";
+    }
 
     private static bool IsExitCommand(string command) =>
         command.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
@@ -116,6 +161,70 @@ public sealed class ReplLoop
     private static bool IsHelpCommand(string command) =>
         command.Equals("help", StringComparison.OrdinalIgnoreCase) ||
         command.Equals("?", StringComparison.OrdinalIgnoreCase);
+
+    private string? _lastSessionId;
+
+    private void HandleSessionChange()
+    {
+        var currentSessionId = _context.CurrentSession?.TicketId;
+
+        // If session changed, save history to old session and load from new session
+        if (currentSessionId != _lastSessionId)
+        {
+            if (_lastSessionId is not null)
+                SaveHistoryForSession(_lastSessionId);
+
+            if (currentSessionId is not null)
+                LoadHistoryForSession(currentSessionId);
+
+            _lastSessionId = currentSessionId;
+        }
+    }
+
+    private void SaveHistory()
+    {
+        if (_context.CurrentSession is { } session)
+            SaveHistoryForSession(session.TicketId);
+    }
+
+    private void SaveHistoryForSession(string sessionId)
+    {
+        try
+        {
+            var sessionDir = _sessionService.GetSessionDirectory(sessionId);
+            var historyPath = Path.Combine(sessionDir, HistoryFileName);
+            var history = ReadLine.GetHistory();
+
+            if (history.Count > 0)
+                File.WriteAllLines(historyPath, history);
+        }
+        catch
+        {
+            // Silently ignore history save failures - not critical
+        }
+    }
+
+    private void LoadHistoryForSession(string sessionId)
+    {
+        try
+        {
+            var sessionDir = _sessionService.GetSessionDirectory(sessionId);
+            var historyPath = Path.Combine(sessionDir, HistoryFileName);
+
+            if (File.Exists(historyPath))
+            {
+                // Clear existing history and load from file
+                ReadLine.ClearHistory();
+                var lines = File.ReadAllLines(historyPath);
+                foreach (var line in lines)
+                    ReadLine.AddHistory(line);
+            }
+        }
+        catch
+        {
+            // Silently ignore history load failures - not critical
+        }
+    }
 
     private void ShowHelp(string[] tokens)
     {

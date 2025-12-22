@@ -13,6 +13,11 @@ public sealed class AliasCommand : ICommand
     private readonly IAliasService _aliasService;
     private readonly IAliasResolver _aliasResolver;
 
+    private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "list", "ls", "show", "add", "remove", "rm", "test"
+    };
+
     /// <inheritdoc/>
     public string Name => "alias";
 
@@ -21,6 +26,9 @@ public sealed class AliasCommand : ICommand
 
     /// <inheritdoc/>
     public string Usage => "alias <list|show|add|remove|test> [args]";
+
+    /// <inheritdoc/>
+    public IReadOnlySet<string> Subcommands => _subcommands;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="AliasCommand"/> class.
