@@ -11,6 +11,11 @@ public sealed class SessionCommand : ICommand
 {
     private readonly ISessionService _sessionService;
 
+    private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "start", "list", "ls", "leave", "resume", "delete", "rm", "status"
+    };
+
     /// <inheritdoc/>
     public string Name => "session";
 
@@ -19,6 +24,9 @@ public sealed class SessionCommand : ICommand
 
     /// <inheritdoc/>
     public string Usage => "session <start|list|leave|resume|delete|status> [session-name]";
+
+    /// <inheritdoc/>
+    public IReadOnlySet<string> Subcommands => _subcommands;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="SessionCommand"/> class.
