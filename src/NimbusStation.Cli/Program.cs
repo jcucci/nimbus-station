@@ -30,11 +30,10 @@ public static class Program
         var repl = services.GetRequiredService<ReplLoop>();
 
         using var cts = new CancellationTokenSource();
-        Console.CancelKeyPress += (_, e) =>
-        {
-            e.Cancel = true;
-            cts.Cancel();
-        };
+
+        // Note: We don't set up Console.CancelKeyPress here because ReadLine
+        // handles Ctrl+C internally by returning null, which ReplLoop handles.
+        // Setting e.Cancel = true would interfere with ReadLine's Ctrl+C handling.
 
         await repl.RunAsync(cts.Token);
     }
