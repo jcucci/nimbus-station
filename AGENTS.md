@@ -63,6 +63,25 @@ must stay in the `Providers.Azure` project.
 * **DI:** Use `Microsoft.Extensions.DependencyInjection`.
 * **Async:** Native async/await throughout.
 
+### Code Style Preferences
+
+* **One type per file:** Each public class, record, or interface should be in
+  its own file. Exceptions: private nested types that are internal to the
+  containing type.
+* **Expression-bodied members:** Prefer expression bodies (`=>`) for simple
+  single-statement methods and properties.
+* **Inline conditionals:** Use inline `if` statements for simple early returns
+  (e.g., `if (x) return y;`).
+* **Named parameters:** Use named parameters when calling methods with multiple
+  arguments to improve readability, especially for boolean flags or when the
+  meaning isn't obvious from the value alone.
+* **Consolidate shared logic:** When similar parsing or utility logic appears
+  in multiple places, extract it to a shared location in Core (e.g.,
+  `InputTokenizer` in `Core.Parsing`).
+* **Alias naming:** Alias names must start with a letter and contain only
+  letters, numbers, hyphens, and underscores. Leading numbers are not allowed
+  to avoid confusion with numeric arguments.
+
 ## 6. Directory Structure
 
 ```text

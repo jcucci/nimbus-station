@@ -1,4 +1,5 @@
 using NimbusStation.Cli.Commands;
+using NimbusStation.Core.Aliases;
 using NimbusStation.Core.Commands;
 using Spectre.Console;
 
@@ -10,22 +11,22 @@ namespace NimbusStation.Cli.Repl;
 public sealed class ReplLoop
 {
     private readonly CommandRegistry _commandRegistry;
+    private readonly IAliasResolver _aliasResolver;
     private readonly CommandContext _context;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="ReplLoop"/> class.
     /// </summary>
-    /// <param name="commandRegistry">The command registry.</param>
-    public ReplLoop(CommandRegistry commandRegistry)
+    public ReplLoop(CommandRegistry commandRegistry, IAliasResolver aliasResolver)
     {
         _commandRegistry = commandRegistry;
+        _aliasResolver = aliasResolver;
         _context = new CommandContext();
     }
 
     /// <summary>
     /// Runs the REPL loop until the user exits.
     /// </summary>
-    /// <param name="cancellationToken">Cancellation token.</param>
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
         while (!cancellationToken.IsCancellationRequested)
@@ -37,7 +38,21 @@ public sealed class ReplLoop
             if (string.IsNullOrWhiteSpace(input))
                 continue;
 
-            var tokens = InputParser.Parse(input);
+            // Expand any command aliases before processing
+            var aliasResult = await _aliasResolver.ExpandAsync(input, _context.CurrentSession, cancellationToken);
+
+            if (!aliasResult.IsSuccess)
+            {
+                AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(aliasResult.Error!)}");
+                continue;
+            }
+
+            var effectiveInput = aliasResult.ExpandedInput;
+
+            if (aliasResult.WasExpanded)
+                AnsiConsole.MarkupLine($"[dim]>[/] {Markup.Escape(effectiveInput)}");
+
+            var tokens = InputParser.Parse(effectiveInput);
             var commandName = InputParser.GetCommandName(tokens);
 
             if (commandName is null)

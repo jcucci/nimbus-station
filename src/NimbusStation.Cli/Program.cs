@@ -3,7 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NimbusStation.Cli.Commands;
 using NimbusStation.Cli.Repl;
+using NimbusStation.Core.Aliases;
 using NimbusStation.Core.Session;
+using NimbusStation.Infrastructure.Aliases;
 using NimbusStation.Infrastructure.Sessions;
 using Spectre.Console;
 
@@ -49,12 +51,18 @@ public static class Program
         // Core services
         services.AddSingleton<ISessionService, SessionService>();
 
+        // Alias services
+        services.AddSingleton<IAliasService, AliasService>();
+        services.AddSingleton<IAliasResolver, AliasResolver>();
+
         // Commands
         services.AddSingleton<SessionCommand>();
+        services.AddSingleton<AliasCommand>();
         services.AddSingleton<CommandRegistry>(sp =>
         {
             var registry = new CommandRegistry();
             registry.Register(sp.GetRequiredService<SessionCommand>());
+            registry.Register(sp.GetRequiredService<AliasCommand>());
             return registry;
         });
 
