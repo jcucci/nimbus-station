@@ -43,7 +43,7 @@ public sealed class AliasCommand : ICommand
         return subcommand switch
         {
             "list" or "ls" => await HandleListAsync(cancellationToken),
-            "show" => HandleShow(subArgs),
+            "show" => await HandleShowAsync(subArgs, cancellationToken),
             "add" => await HandleAddAsync(subArgs, cancellationToken),
             "remove" or "rm" => await HandleRemoveAsync(subArgs, cancellationToken),
             "test" => await HandleTestAsync(subArgs, context, cancellationToken),
@@ -79,12 +79,13 @@ public sealed class AliasCommand : ICommand
         return CommandResult.Ok(aliases);
     }
 
-    private CommandResult HandleShow(string[] args)
+    private async Task<CommandResult> HandleShowAsync(string[] args, CancellationToken cancellationToken)
     {
         if (args.Length == 0)
             return CommandResult.Error("Usage: alias show <name>");
 
         var name = args[0];
+        await _aliasService.LoadAliasesAsync(cancellationToken);
         var aliases = _aliasService.GetAllAliases();
 
         if (!aliases.TryGetValue(name, out var expansion))

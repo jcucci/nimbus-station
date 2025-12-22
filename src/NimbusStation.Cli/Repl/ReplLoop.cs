@@ -17,6 +17,8 @@ public sealed class ReplLoop
     /// <summary>
     /// Initializes a new instance of the <see cref="ReplLoop"/> class.
     /// </summary>
+    /// <param name="commandRegistry">The registry that provides access to available commands.</param>
+    /// <param name="aliasResolver">The resolver used to expand command aliases entered in the REPL.</param>
     public ReplLoop(CommandRegistry commandRegistry, IAliasResolver aliasResolver)
     {
         _commandRegistry = commandRegistry;
@@ -27,6 +29,7 @@ public sealed class ReplLoop
     /// <summary>
     /// Runs the REPL loop until the user exits.
     /// </summary>
+    /// <param name="cancellationToken">A token that can be used to cancel and stop the REPL loop.</param>
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
         while (!cancellationToken.IsCancellationRequested)

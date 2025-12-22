@@ -7,6 +7,7 @@ public sealed class AliasServiceTests : IDisposable
 {
     private readonly string _tempDirectory;
     private readonly string _aliasesPath;
+    private readonly LoggerFactory _loggerFactory;
     private readonly ILogger<AliasService> _logger;
 
     public AliasServiceTests()
@@ -14,11 +15,13 @@ public sealed class AliasServiceTests : IDisposable
         _tempDirectory = Path.Combine(Path.GetTempPath(), $"nimbus-alias-test-{Guid.NewGuid()}");
         Directory.CreateDirectory(_tempDirectory);
         _aliasesPath = Path.Combine(_tempDirectory, "aliases.toml");
-        _logger = new LoggerFactory().CreateLogger<AliasService>();
+        _loggerFactory = new LoggerFactory();
+        _logger = _loggerFactory.CreateLogger<AliasService>();
     }
 
     public void Dispose()
     {
+        _loggerFactory.Dispose();
         if (Directory.Exists(_tempDirectory))
             Directory.Delete(_tempDirectory, recursive: true);
     }
@@ -274,9 +277,38 @@ public sealed class AliasServiceTests : IDisposable
     {
         var service = CreateService();
 
-        await service.AddAliasAsync("user", "azure cosmos query @prod \"SELECT * FROM c WHERE c.id = '{0}'\"");
+        await service.AddAliasAsync("query", "azure cosmos query @prod \"SELECT * FROM c WHERE c.id = '{0}'\"");
 
         var content = await File.ReadAllTextAsync(_aliasesPath);
         Assert.Contains("\\\"SELECT", content); // Quotes should be escaped
+    }
+
+    [Fact]
+    public async Task AddAliasAsync_RoundTrip_PreservesSpecialCharacters()
+    {
+        var service = CreateService();
+        var originalExpansion = "azure cosmos query @prod \"SELECT * FROM c WHERE c.id = '{0}'\"";
+
+        await service.AddAliasAsync("query", originalExpansion);
+
+        // Reload from disk to verify round-trip
+        var reloadedConfig = await service.ReloadAliasesAsync();
+
+        Assert.True(reloadedConfig.TryGetAlias("query", out var loadedExpansion));
+        Assert.Equal(originalExpansion, loadedExpansion);
+    }
+
+    [Fact]
+    public async Task AddAliasAsync_RoundTrip_PreservesBackslashes()
+    {
+        var service = CreateService();
+        var originalExpansion = "path\\to\\file";
+
+        await service.AddAliasAsync("mypath", originalExpansion);
+
+        var reloadedConfig = await service.ReloadAliasesAsync();
+
+        Assert.True(reloadedConfig.TryGetAlias("mypath", out var loadedExpansion));
+        Assert.Equal(originalExpansion, loadedExpansion);
     }
 }

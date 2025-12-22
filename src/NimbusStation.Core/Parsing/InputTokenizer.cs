@@ -79,6 +79,10 @@ public static class InputTokenizer
             current.Append(c);
         }
 
+        // Handle trailing backslash (no character to escape)
+        if (escaped)
+            current.Append('\\');
+
         if (current.Length > 0)
             tokens.Add(current.ToString());
 

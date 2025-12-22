@@ -140,10 +140,8 @@ public sealed class AliasService : IAliasService
     }
 
     /// <inheritdoc/>
-    public IReadOnlyDictionary<string, string> GetAllAliases()
-    {
-        return _aliases;
-    }
+    public IReadOnlyDictionary<string, string> GetAllAliases() =>
+        _aliases.AsReadOnly();
 
     private static string GetDefaultAliasesPath()
     {

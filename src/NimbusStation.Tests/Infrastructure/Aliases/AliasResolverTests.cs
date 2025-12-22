@@ -4,16 +4,20 @@ using NimbusStation.Infrastructure.Aliases;
 
 namespace NimbusStation.Tests.Infrastructure.Aliases;
 
-public sealed class AliasResolverTests
+public sealed class AliasResolverTests : IDisposable
 {
+    private readonly LoggerFactory _loggerFactory;
     private readonly ILogger<AliasResolver> _logger;
     private readonly string _sessionsBasePath;
 
     public AliasResolverTests()
     {
-        _logger = new LoggerFactory().CreateLogger<AliasResolver>();
+        _loggerFactory = new LoggerFactory();
+        _logger = _loggerFactory.CreateLogger<AliasResolver>();
         _sessionsBasePath = "/test/sessions";
     }
+
+    public void Dispose() => _loggerFactory.Dispose();
 
     private AliasResolver CreateResolver(Dictionary<string, string> aliases)
     {

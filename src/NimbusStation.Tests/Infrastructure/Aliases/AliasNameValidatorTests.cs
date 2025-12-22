@@ -89,7 +89,7 @@ public sealed class AliasNameValidatorTests
     [Theory]
     [InlineData("cq")]
     [InlineData("my-alias")]
-    [InlineData("sessions")] // Similar but not reserved
+    [InlineData("custom-cmd")]
     [InlineData("helper")]
     public void IsReserved_NonReservedNames_ReturnsFalse(string name)
     {
