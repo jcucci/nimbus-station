@@ -41,6 +41,13 @@ public sealed class ReplLoop
         // Set up tab auto-completion
         ReadLine.AutoCompletionHandler = new CommandAutoCompleteHandler(_commandRegistry);
 
+        // Load history for any active session at startup
+        if (_context.CurrentSession is { } initialSession)
+        {
+            LoadHistoryForSession(initialSession.TicketId);
+            _lastSessionId = initialSession.TicketId;
+        }
+
         while (!cancellationToken.IsCancellationRequested)
         {
             // Render the styled prompt with Spectre.Console, then use ReadLine for input with history

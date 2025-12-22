@@ -24,7 +24,7 @@ public interface ICommand
     /// Gets the available subcommands for this command, used for tab auto-completion.
     /// Returns an empty set if the command has no subcommands.
     /// </summary>
-    IReadOnlySet<string> Subcommands { get; }
+    IReadOnlySet<string> Subcommands => new HashSet<string>();
 
     /// <summary>
     /// Executes the command with the given arguments.
