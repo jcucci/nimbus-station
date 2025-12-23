@@ -6,6 +6,7 @@ using NimbusStation.Cli.Repl;
 using NimbusStation.Core.Aliases;
 using NimbusStation.Core.Session;
 using NimbusStation.Infrastructure.Aliases;
+using NimbusStation.Infrastructure.Configuration;
 using NimbusStation.Infrastructure.Sessions;
 using Spectre.Console;
 
@@ -49,6 +50,7 @@ public static class Program
 
         // Core services
         services.AddSingleton<ISessionService, SessionService>();
+        services.AddSingleton<IConfigurationService, ConfigurationService>();
 
         // Alias services
         services.AddSingleton<IAliasService, AliasService>();
@@ -57,11 +59,15 @@ public static class Program
         // Commands
         services.AddSingleton<SessionCommand>();
         services.AddSingleton<AliasCommand>();
+        services.AddSingleton<UseCommand>();
+        services.AddSingleton<InfoCommand>();
         services.AddSingleton<CommandRegistry>(sp =>
         {
             var registry = new CommandRegistry();
             registry.Register(sp.GetRequiredService<SessionCommand>());
             registry.Register(sp.GetRequiredService<AliasCommand>());
+            registry.Register(sp.GetRequiredService<UseCommand>());
+            registry.Register(sp.GetRequiredService<InfoCommand>());
             return registry;
         });
 
