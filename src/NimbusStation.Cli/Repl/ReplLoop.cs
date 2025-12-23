@@ -2,6 +2,7 @@ using NimbusStation.Cli.Commands;
 using NimbusStation.Core.Aliases;
 using NimbusStation.Core.Commands;
 using NimbusStation.Core.Session;
+using NimbusStation.Infrastructure.Configuration;
 using Spectre.Console;
 
 namespace NimbusStation.Cli.Repl;
@@ -14,6 +15,7 @@ public sealed class ReplLoop
     private readonly CommandRegistry _commandRegistry;
     private readonly IAliasResolver _aliasResolver;
     private readonly ISessionService _sessionService;
+    private readonly IConfigurationService _configurationService;
     private readonly CommandContext _context;
 
     private const string HistoryFileName = ".repl_history";
@@ -24,11 +26,17 @@ public sealed class ReplLoop
     /// <param name="commandRegistry">The registry that provides access to available commands.</param>
     /// <param name="aliasResolver">The resolver used to expand command aliases entered in the REPL.</param>
     /// <param name="sessionService">The session service for accessing session directories.</param>
-    public ReplLoop(CommandRegistry commandRegistry, IAliasResolver aliasResolver, ISessionService sessionService)
+    /// <param name="configurationService">The configuration service for loading resource aliases.</param>
+    public ReplLoop(
+        CommandRegistry commandRegistry,
+        IAliasResolver aliasResolver,
+        ISessionService sessionService,
+        IConfigurationService configurationService)
     {
         _commandRegistry = commandRegistry;
         _aliasResolver = aliasResolver;
         _sessionService = sessionService;
+        _configurationService = configurationService;
         _context = new CommandContext();
     }
 
@@ -38,6 +46,9 @@ public sealed class ReplLoop
     /// <param name="cancellationToken">A token that can be used to cancel and stop the REPL loop.</param>
     public async Task RunAsync(CancellationToken cancellationToken = default)
     {
+        // Eager-load configuration at startup so alias lookups are instant
+        await _configurationService.LoadConfigurationAsync(cancellationToken);
+
         // Set up tab auto-completion
         ReadLine.AutoCompletionHandler = new CommandAutoCompleteHandler(_commandRegistry);
 
