@@ -2,6 +2,7 @@ using NimbusStation.Cli.Commands;
 using NimbusStation.Core.Commands;
 using NimbusStation.Core.Session;
 using NimbusStation.Infrastructure.Configuration;
+using NimbusStation.Tests.Helpers;
 
 namespace NimbusStation.Tests.Cli.Commands;
 
@@ -153,39 +154,13 @@ public sealed class InfoCommandTests
     [Fact]
     public void Subcommands_IsEmpty()
     {
-        ICommand command = _command;
-        Assert.Empty(command.Subcommands);
+        Assert.Empty(_command.Subcommands);
     }
 
     [Fact]
     public void Usage_ReturnsExpectedFormat()
     {
         Assert.Equal("info", _command.Usage);
-    }
-
-    #endregion
-
-    #region Stub Implementation
-
-    private sealed class StubConfigurationService : IConfigurationService
-    {
-        private readonly Dictionary<string, CosmosAliasConfig> _cosmosAliases = new();
-        private readonly Dictionary<string, BlobAliasConfig> _blobAliases = new();
-
-        public void AddCosmosAlias(string name, CosmosAliasConfig config) => _cosmosAliases[name] = config;
-
-        public void AddBlobAlias(string name, BlobAliasConfig config) => _blobAliases[name] = config;
-
-        public Task<NimbusConfiguration> LoadConfigurationAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult(new NimbusConfiguration());
-
-        public CosmosAliasConfig? GetCosmosAlias(string name)
-            => _cosmosAliases.GetValueOrDefault(name);
-
-        public BlobAliasConfig? GetBlobAlias(string name)
-            => _blobAliases.GetValueOrDefault(name);
-
-        public ThemeConfig GetTheme() => ThemeConfig.Default;
     }
 
     #endregion

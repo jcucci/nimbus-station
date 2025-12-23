@@ -20,6 +20,9 @@ public sealed class InfoCommand : ICommand
     /// <inheritdoc/>
     public string Usage => "info";
 
+    /// <inheritdoc/>
+    public IReadOnlySet<string> Subcommands { get; } = new HashSet<string>();
+
     /// <summary>
     /// Initializes a new instance of the <see cref="InfoCommand"/> class.
     /// </summary>
