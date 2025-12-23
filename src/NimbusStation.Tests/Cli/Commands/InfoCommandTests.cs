@@ -2,7 +2,7 @@ using NimbusStation.Cli.Commands;
 using NimbusStation.Core.Commands;
 using NimbusStation.Core.Session;
 using NimbusStation.Infrastructure.Configuration;
-using NimbusStation.Tests.Helpers;
+using NimbusStation.Tests.Fixtures;
 
 namespace NimbusStation.Tests.Cli.Commands;
 

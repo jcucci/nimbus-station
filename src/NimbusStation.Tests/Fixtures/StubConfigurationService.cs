@@ -1,6 +1,6 @@
 using NimbusStation.Infrastructure.Configuration;
 
-namespace NimbusStation.Tests.Helpers;
+namespace NimbusStation.Tests.Fixtures;
 
 /// <summary>
 /// Stub implementation of <see cref="IConfigurationService"/> for testing.
