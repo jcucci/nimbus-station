@@ -10,7 +10,7 @@ namespace NimbusStation.Core.Commands;
 /// <param name="Data">Optional data returned by the command.</param>
 /// <param name="NewSession">
 /// The new session state after command execution, if the command modified the session.
-/// A value of <see cref="SessionChange.None"/> indicates no change.
+/// A null value indicates that the session was not changed.
 /// </param>
 public sealed record CommandResult(
     bool Success,

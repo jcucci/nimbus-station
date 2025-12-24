@@ -51,10 +51,10 @@ public sealed class ConsoleOutputWriter : IOutputWriter
     /// <inheritdoc/>
     public void WriteRaw(ReadOnlySpan<byte> data)
     {
-        // For console output, convert bytes to string and write
+        // For console output, convert bytes to string and write as unformatted text
         // This is a fallback - binary data should typically go through StreamOutputWriter
         var text = System.Text.Encoding.UTF8.GetString(data);
-        Console.Write(text);
+        _console.Write(new Text(text));
     }
 
     /// <inheritdoc/>

@@ -95,12 +95,17 @@ public sealed class CaptureOutputWriterTests
     public void WriteRenderable_WithObject_WritesToString()
     {
         var writer = new CaptureOutputWriter();
-        var obj = new { Name = "Test", Value = 42 };
+        var obj = new TestRenderable("Test", 42);
 
         writer.WriteRenderable(obj);
 
-        Assert.Contains("Name", writer.GetOutput());
         Assert.Contains("Test", writer.GetOutput());
+        Assert.Contains("42", writer.GetOutput());
+    }
+
+    private sealed record TestRenderable(string Name, int Value)
+    {
+        public override string ToString() => $"Name={Name}, Value={Value}";
     }
 
     [Fact]
