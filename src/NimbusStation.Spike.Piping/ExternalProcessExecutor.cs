@@ -27,7 +27,7 @@ public sealed class ExternalProcessExecutor
             FileName = command,
             Arguments = arguments ?? "",
             UseShellExecute = false,
-            RedirectStandardInput = stdinContent is not null,
+            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             CreateNoWindow = true
