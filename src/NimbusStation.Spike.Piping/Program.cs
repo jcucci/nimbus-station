@@ -14,7 +14,7 @@ using Spectre.Console;
 AnsiConsole.Write(new FigletText("Piping Spike").Color(Color.Cyan1));
 AnsiConsole.WriteLine();
 
-var cts = new CancellationTokenSource();
+using var cts = new CancellationTokenSource();
 Console.CancelKeyPress += (_, e) =>
 {
     e.Cancel = true;
