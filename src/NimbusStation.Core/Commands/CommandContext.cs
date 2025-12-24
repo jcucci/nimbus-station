@@ -1,35 +1,34 @@
+using NimbusStation.Core.Output;
 using NimbusStation.Core.Session;
 
 namespace NimbusStation.Core.Commands;
 
 /// <summary>
-/// Provides context for command execution, including the current session state.
+/// Provides immutable context for command execution, including the current session state
+/// and output writer for producing command output.
 /// </summary>
-public sealed class CommandContext
+/// <param name="CurrentSession">The currently active session, if any.</param>
+/// <param name="Output">The output writer for command results.</param>
+public sealed record CommandContext(
+    Session.Session? CurrentSession,
+    IOutputWriter Output)
 {
-    /// <summary>
-    /// Gets or sets the currently active session, if any.
-    /// </summary>
-    public Session.Session? CurrentSession { get; set; }
-
     /// <summary>
     /// Gets a value indicating whether a session is currently active.
     /// </summary>
     public bool HasActiveSession => CurrentSession is not null;
 
     /// <summary>
-    /// Creates a new command context with no active session.
+    /// Creates a new context with the specified session, preserving other properties.
     /// </summary>
-    public CommandContext()
-    {
-    }
+    /// <param name="session">The new session value.</param>
+    /// <returns>A new <see cref="CommandContext"/> with the updated session.</returns>
+    public CommandContext WithSession(Session.Session? session) => this with { CurrentSession = session };
 
     /// <summary>
-    /// Creates a new command context with the specified session.
+    /// Creates a new context with the specified output writer, preserving other properties.
     /// </summary>
-    /// <param name="session">The current session.</param>
-    public CommandContext(Session.Session? session)
-    {
-        CurrentSession = session;
-    }
+    /// <param name="output">The new output writer.</param>
+    /// <returns>A new <see cref="CommandContext"/> with the updated output writer.</returns>
+    public CommandContext WithOutput(IOutputWriter output) => this with { Output = output };
 }

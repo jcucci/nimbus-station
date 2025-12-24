@@ -44,7 +44,7 @@ public sealed class InfoCommand : ICommand
         if (activeContext is null ||
             (activeContext.ActiveCosmosAlias is null && activeContext.ActiveBlobAlias is null))
         {
-            AnsiConsole.MarkupLine("[dim]No active context. Use 'use cosmos <alias>' or 'use blob <alias>' to set one.[/]");
+            context.Output.WriteLine("[dim]No active context. Use 'use cosmos <alias>' or 'use blob <alias>' to set one.[/]");
             return Task.FromResult(CommandResult.Ok());
         }
 
@@ -100,7 +100,7 @@ public sealed class InfoCommand : ICommand
             }
         }
 
-        AnsiConsole.Write(table);
+        context.Output.WriteRenderable(table);
 
         return Task.FromResult(CommandResult.Ok());
     }

@@ -2,6 +2,7 @@ using NimbusStation.Cli.Commands;
 using NimbusStation.Core.Commands;
 using NimbusStation.Core.Session;
 using NimbusStation.Infrastructure.Configuration;
+using NimbusStation.Infrastructure.Output;
 using NimbusStation.Tests.Fixtures;
 
 namespace NimbusStation.Tests.Cli.Commands;
@@ -11,12 +12,14 @@ public sealed class UseCommandTests
     private readonly StubSessionService _sessionService;
     private readonly StubConfigurationService _configurationService;
     private readonly UseCommand _command;
+    private readonly CaptureOutputWriter _outputWriter;
 
     public UseCommandTests()
     {
         _sessionService = new StubSessionService();
         _configurationService = new StubConfigurationService();
         _command = new UseCommand(_sessionService, _configurationService);
+        _outputWriter = new CaptureOutputWriter();
     }
 
     #region No Session Tests
@@ -24,7 +27,7 @@ public sealed class UseCommandTests
     [Fact]
     public async Task ExecuteAsync_NoSession_ReturnsError()
     {
-        var context = new CommandContext();
+        var context = new CommandContext(CurrentSession: null, Output: _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
@@ -35,7 +38,7 @@ public sealed class UseCommandTests
     [Fact]
     public async Task ExecuteAsync_NoSessionWithArgs_ReturnsError()
     {
-        var context = new CommandContext();
+        var context = new CommandContext(CurrentSession: null, Output: _outputWriter);
 
         var result = await _command.ExecuteAsync(["cosmos", "test-alias"], context);
 
@@ -62,7 +65,7 @@ public sealed class UseCommandTests
     {
         var session = Session.Create("TEST-123")
             .WithContext(new SessionContext("my-cosmos", "my-blob"));
-        var context = new CommandContext { CurrentSession = session };
+        var context = new CommandContext(session, _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
@@ -85,7 +88,8 @@ public sealed class UseCommandTests
         var result = await _command.ExecuteAsync(["cosmos", "prod-main"], context);
 
         Assert.True(result.Success);
-        Assert.Equal("prod-main", context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
+        Assert.NotNull(result.NewSession);
+        Assert.Equal("prod-main", result.NewSession.Session?.ActiveContext?.ActiveCosmosAlias);
     }
 
     [Fact]
@@ -97,14 +101,15 @@ public sealed class UseCommandTests
             "Users"));
         var session = Session.Create("TEST-123")
             .WithContext(new SessionContext(null, "existing-blob"));
-        var context = new CommandContext { CurrentSession = session };
+        var context = new CommandContext(session, _outputWriter);
         _sessionService.SetSession(session);
 
         var result = await _command.ExecuteAsync(["cosmos", "prod-main"], context);
 
         Assert.True(result.Success);
-        Assert.Equal("prod-main", context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
-        Assert.Equal("existing-blob", context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.NotNull(result.NewSession);
+        Assert.Equal("prod-main", result.NewSession.Session?.ActiveContext?.ActiveCosmosAlias);
+        Assert.Equal("existing-blob", result.NewSession.Session?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
@@ -143,7 +148,8 @@ public sealed class UseCommandTests
         var result = await _command.ExecuteAsync(["blob", "prod-logs"], context);
 
         Assert.True(result.Success);
-        Assert.Equal("prod-logs", context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.NotNull(result.NewSession);
+        Assert.Equal("prod-logs", result.NewSession.Session?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
@@ -152,14 +158,15 @@ public sealed class UseCommandTests
         _configurationService.AddBlobAlias("prod-logs", new BlobAliasConfig("prodlogs", "applogs"));
         var session = Session.Create("TEST-123")
             .WithContext(new SessionContext("existing-cosmos", null));
-        var context = new CommandContext { CurrentSession = session };
+        var context = new CommandContext(session, _outputWriter);
         _sessionService.SetSession(session);
 
         var result = await _command.ExecuteAsync(["blob", "prod-logs"], context);
 
         Assert.True(result.Success);
-        Assert.Equal("existing-cosmos", context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
-        Assert.Equal("prod-logs", context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.NotNull(result.NewSession);
+        Assert.Equal("existing-cosmos", result.NewSession.Session?.ActiveContext?.ActiveCosmosAlias);
+        Assert.Equal("prod-logs", result.NewSession.Session?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
@@ -194,14 +201,15 @@ public sealed class UseCommandTests
     {
         var session = Session.Create("TEST-123")
             .WithContext(new SessionContext("my-cosmos", "my-blob"));
-        var context = new CommandContext { CurrentSession = session };
+        var context = new CommandContext(session, _outputWriter);
         _sessionService.SetSession(session);
 
         var result = await _command.ExecuteAsync(["clear"], context);
 
         Assert.True(result.Success);
-        Assert.Null(context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
-        Assert.Null(context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.NotNull(result.NewSession);
+        Assert.Null(result.NewSession.Session?.ActiveContext?.ActiveCosmosAlias);
+        Assert.Null(result.NewSession.Session?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
@@ -209,14 +217,15 @@ public sealed class UseCommandTests
     {
         var session = Session.Create("TEST-123")
             .WithContext(new SessionContext("my-cosmos", "my-blob"));
-        var context = new CommandContext { CurrentSession = session };
+        var context = new CommandContext(session, _outputWriter);
         _sessionService.SetSession(session);
 
         var result = await _command.ExecuteAsync(["clear", "cosmos"], context);
 
         Assert.True(result.Success);
-        Assert.Null(context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
-        Assert.Equal("my-blob", context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.NotNull(result.NewSession);
+        Assert.Null(result.NewSession.Session?.ActiveContext?.ActiveCosmosAlias);
+        Assert.Equal("my-blob", result.NewSession.Session?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
@@ -224,14 +233,15 @@ public sealed class UseCommandTests
     {
         var session = Session.Create("TEST-123")
             .WithContext(new SessionContext("my-cosmos", "my-blob"));
-        var context = new CommandContext { CurrentSession = session };
+        var context = new CommandContext(session, _outputWriter);
         _sessionService.SetSession(session);
 
         var result = await _command.ExecuteAsync(["clear", "blob"], context);
 
         Assert.True(result.Success);
-        Assert.Equal("my-cosmos", context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
-        Assert.Null(context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.NotNull(result.NewSession);
+        Assert.Equal("my-cosmos", result.NewSession.Session?.ActiveContext?.ActiveCosmosAlias);
+        Assert.Null(result.NewSession.Session?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
@@ -287,7 +297,7 @@ public sealed class UseCommandTests
     {
         var session = Session.Create("TEST-123");
         _sessionService.SetSession(session);
-        return new CommandContext { CurrentSession = session };
+        return new CommandContext(session, _outputWriter);
     }
 
     #endregion

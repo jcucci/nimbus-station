@@ -1,7 +1,6 @@
 using NimbusStation.Core.Commands;
 using NimbusStation.Core.Session;
 using NimbusStation.Infrastructure.Configuration;
-using Spectre.Console;
 
 namespace NimbusStation.Cli.Commands;
 
@@ -70,9 +69,9 @@ public sealed class UseCommand : ICommand
         var cosmosAlias = activeContext?.ActiveCosmosAlias ?? "(none)";
         var blobAlias = activeContext?.ActiveBlobAlias ?? "(none)";
 
-        AnsiConsole.MarkupLine("[bold]Active contexts:[/]");
-        AnsiConsole.MarkupLine($"  [orange1]cosmos:[/] {cosmosAlias}");
-        AnsiConsole.MarkupLine($"  [magenta]blob:[/]   {blobAlias}");
+        context.Output.WriteLine("[bold]Active contexts:[/]");
+        context.Output.WriteLine($"  [orange1]cosmos:[/] {cosmosAlias}");
+        context.Output.WriteLine($"  [magenta]blob:[/]   {blobAlias}");
 
         return CommandResult.Ok();
     }
@@ -97,12 +96,10 @@ public sealed class UseCommand : ICommand
             newContext,
             cancellationToken);
 
-        context.CurrentSession = updatedSession;
+        context.Output.WriteLine($"[green]Context set:[/] [orange1]cosmos/{aliasName}[/]");
+        context.Output.WriteLine($"[dim]Endpoint: {aliasConfig.Endpoint}[/]");
 
-        AnsiConsole.MarkupLine($"[green]Context set:[/] [orange1]cosmos/{aliasName}[/]");
-        AnsiConsole.MarkupLine($"[dim]Endpoint: {aliasConfig.Endpoint}[/]");
-
-        return CommandResult.Ok();
+        return CommandResult.OkWithSession(updatedSession);
     }
 
     private async Task<CommandResult> HandleSetBlobAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
@@ -125,12 +122,10 @@ public sealed class UseCommand : ICommand
             newContext,
             cancellationToken);
 
-        context.CurrentSession = updatedSession;
+        context.Output.WriteLine($"[green]Context set:[/] [magenta]blob/{aliasName}[/]");
+        context.Output.WriteLine($"[dim]Account: {aliasConfig.Account}[/]");
 
-        AnsiConsole.MarkupLine($"[green]Context set:[/] [magenta]blob/{aliasName}[/]");
-        AnsiConsole.MarkupLine($"[dim]Account: {aliasConfig.Account}[/]");
-
-        return CommandResult.Ok();
+        return CommandResult.OkWithSession(updatedSession);
     }
 
     private async Task<CommandResult> HandleClearAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
@@ -169,10 +164,8 @@ public sealed class UseCommand : ICommand
             newContext,
             cancellationToken);
 
-        context.CurrentSession = updatedSession;
+        context.Output.WriteLine($"[yellow]{message}[/]");
 
-        AnsiConsole.MarkupLine($"[yellow]{message}[/]");
-
-        return CommandResult.Ok();
+        return CommandResult.OkWithSession(updatedSession);
     }
 }

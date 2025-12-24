@@ -1,6 +1,8 @@
 using NimbusStation.Cli.Commands;
+using NimbusStation.Cli.Output;
 using NimbusStation.Core.Aliases;
 using NimbusStation.Core.Commands;
+using NimbusStation.Core.Output;
 using NimbusStation.Core.Session;
 using NimbusStation.Infrastructure.Configuration;
 using Spectre.Console;
@@ -16,7 +18,10 @@ public sealed class ReplLoop
     private readonly IAliasResolver _aliasResolver;
     private readonly ISessionService _sessionService;
     private readonly IConfigurationService _configurationService;
-    private readonly CommandContext _context;
+    private readonly IOutputWriter _outputWriter;
+
+    private Session? _currentSession;
+    private string? _lastSessionId;
 
     private const string HistoryFileName = ".repl_history";
 
@@ -32,12 +37,30 @@ public sealed class ReplLoop
         IAliasResolver aliasResolver,
         ISessionService sessionService,
         IConfigurationService configurationService)
+        : this(commandRegistry, aliasResolver, sessionService, configurationService, new ConsoleOutputWriter())
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ReplLoop"/> class with a custom output writer.
+    /// </summary>
+    /// <param name="commandRegistry">The registry that provides access to available commands.</param>
+    /// <param name="aliasResolver">The resolver used to expand command aliases entered in the REPL.</param>
+    /// <param name="sessionService">The session service for accessing session directories.</param>
+    /// <param name="configurationService">The configuration service for loading resource aliases.</param>
+    /// <param name="outputWriter">The output writer for command output.</param>
+    public ReplLoop(
+        CommandRegistry commandRegistry,
+        IAliasResolver aliasResolver,
+        ISessionService sessionService,
+        IConfigurationService configurationService,
+        IOutputWriter outputWriter)
     {
         _commandRegistry = commandRegistry;
         _aliasResolver = aliasResolver;
         _sessionService = sessionService;
         _configurationService = configurationService;
-        _context = new CommandContext();
+        _outputWriter = outputWriter;
     }
 
     /// <summary>
@@ -53,7 +76,7 @@ public sealed class ReplLoop
         ReadLine.AutoCompletionHandler = new CommandAutoCompleteHandler(_commandRegistry);
 
         // Load history for any active session at startup
-        if (_context.CurrentSession is { } initialSession)
+        if (_currentSession is { } initialSession)
         {
             LoadHistoryForSession(initialSession.TicketId);
             _lastSessionId = initialSession.TicketId;
@@ -81,7 +104,7 @@ public sealed class ReplLoop
             ReadLine.AddHistory(input);
 
             // Expand any command aliases before processing
-            var aliasResult = await _aliasResolver.ExpandAsync(input, _context.CurrentSession, cancellationToken);
+            var aliasResult = await _aliasResolver.ExpandAsync(input, _currentSession, cancellationToken);
 
             if (!aliasResult.IsSuccess)
             {
@@ -124,10 +147,15 @@ public sealed class ReplLoop
             try
             {
                 var args = InputParser.GetArguments(tokens);
-                var result = await command.ExecuteAsync(args, _context, cancellationToken);
+                var context = new CommandContext(_currentSession, _outputWriter);
+                var result = await command.ExecuteAsync(args, context, cancellationToken);
 
                 if (!result.Success && result.Message is not null)
                     AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(result.Message)}");
+
+                // Handle session changes from commands
+                if (result.NewSession is { } sessionChange)
+                    _currentSession = sessionChange.Session;
 
                 // Session may have changed - handle history persistence
                 HandleSessionChange();
@@ -148,7 +176,7 @@ public sealed class ReplLoop
 
     private string GetPrompt()
     {
-        if (_context.CurrentSession is not { } session)
+        if (_currentSession is not { } session)
             return "[green]ns[/]\u203a ";
 
         var prompt = $"[green]ns[/][[[cyan]{Markup.Escape(session.TicketId)}[/]]]";
@@ -173,11 +201,9 @@ public sealed class ReplLoop
         command.Equals("help", StringComparison.OrdinalIgnoreCase) ||
         command.Equals("?", StringComparison.OrdinalIgnoreCase);
 
-    private string? _lastSessionId;
-
     private void HandleSessionChange()
     {
-        var currentSessionId = _context.CurrentSession?.TicketId;
+        var currentSessionId = _currentSession?.TicketId;
 
         // If session changed, save history to old session and load from new session
         if (currentSessionId != _lastSessionId)
@@ -194,7 +220,7 @@ public sealed class ReplLoop
 
     private void SaveHistory()
     {
-        if (_context.CurrentSession is { } session)
+        if (_currentSession is { } session)
             SaveHistoryForSession(session.TicketId);
     }
 
