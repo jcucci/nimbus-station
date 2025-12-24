@@ -5,6 +5,21 @@ namespace NimbusStation.Core.Parsing;
 /// <summary>
 /// Parses command input into pipeline segments, respecting quotes and escape sequences.
 /// </summary>
+/// <remarks>
+/// <para>
+/// Escape sequences are preserved literally in the output. A backslash escapes only
+/// the immediately following character:
+/// </para>
+/// <list type="bullet">
+///   <item><c>\|</c> - Escaped pipe, not a separator. Output: <c>\|</c></item>
+///   <item><c>\\</c> - Escaped backslash. Output: <c>\\</c></item>
+///   <item><c>\\|</c> - Escaped backslash followed by unescaped pipe (IS a separator)</item>
+///   <item><c>\\\|</c> - Escaped backslash followed by escaped pipe (NOT a separator)</item>
+/// </list>
+/// <para>
+/// Pipes inside quoted strings (single or double quotes) are never treated as separators.
+/// </para>
+/// </remarks>
 public static class PipelineParser
 {
     /// <summary>

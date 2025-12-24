@@ -158,4 +158,41 @@ public class PipelineParserParseTests
         Assert.Equal("cosmos query", result.Segments[0].Content);
         Assert.Equal("jq .", result.Segments[1].Content);
     }
+
+    [Fact]
+    public void EscapedBackslashFollowedByPipe_SplitsOnPipe()
+    {
+        // \\| = escaped backslash (\) followed by unescaped pipe
+        // The pipe IS a separator because the backslash escapes the next backslash, not the pipe
+        var result = PipelineParser.Parse(@"echo a\\| cat");
+
+        Assert.True(result.IsValid);
+        Assert.Equal(2, result.Segments.Count);
+        Assert.Equal(@"echo a\\", result.Segments[0].Content);
+        Assert.Equal("cat", result.Segments[1].Content);
+    }
+
+    [Fact]
+    public void EscapedBackslashFollowedByEscapedPipe_DoesNotSplit()
+    {
+        // \\\| = escaped backslash (\) followed by escaped pipe (|)
+        // Neither is a separator - results in literal \|
+        var result = PipelineParser.Parse(@"echo a\\\|b");
+
+        Assert.True(result.IsValid);
+        Assert.Single(result.Segments);
+        Assert.Equal(@"echo a\\\|b", result.Segments[0].Content);
+    }
+
+    [Fact]
+    public void MultipleEscapedBackslashesFollowedByPipe_SplitsOnPipe()
+    {
+        // \\\\| = two escaped backslashes (\\) followed by unescaped pipe
+        var result = PipelineParser.Parse(@"echo a\\\\| cat");
+
+        Assert.True(result.IsValid);
+        Assert.Equal(2, result.Segments.Count);
+        Assert.Equal(@"echo a\\\\", result.Segments[0].Content);
+        Assert.Equal("cat", result.Segments[1].Content);
+    }
 }

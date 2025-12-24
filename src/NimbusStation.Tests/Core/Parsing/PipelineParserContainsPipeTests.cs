@@ -33,4 +33,14 @@ public class PipelineParserContainsPipeTests
     [Fact]
     public void MultiplePipes_ReturnsTrue() =>
         Assert.True(PipelineParser.ContainsPipe("a | b | c"));
+
+    [Fact]
+    public void EscapedBackslashFollowedByPipe_ReturnsTrue() =>
+        // \\| = escaped backslash followed by unescaped pipe (IS a separator)
+        Assert.True(PipelineParser.ContainsPipe(@"echo a\\|b"));
+
+    [Fact]
+    public void EscapedBackslashFollowedByEscapedPipe_ReturnsFalse() =>
+        // \\\| = escaped backslash followed by escaped pipe (NOT a separator)
+        Assert.False(PipelineParser.ContainsPipe(@"echo a\\\|b"));
 }
