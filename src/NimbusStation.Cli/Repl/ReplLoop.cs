@@ -20,7 +20,6 @@ public sealed class ReplLoop
     private readonly IConfigurationService _configurationService;
     private readonly IOutputWriter _outputWriter;
 
-    private Session? _currentSession;
     private string? _lastSessionId;
 
     private const string HistoryFileName = ".repl_history";
@@ -30,7 +29,7 @@ public sealed class ReplLoop
     /// </summary>
     /// <param name="commandRegistry">The registry that provides access to available commands.</param>
     /// <param name="aliasResolver">The resolver used to expand command aliases entered in the REPL.</param>
-    /// <param name="sessionService">The session service for accessing session directories.</param>
+    /// <param name="sessionService">The session service for managing session state.</param>
     /// <param name="configurationService">The configuration service for loading resource aliases.</param>
     public ReplLoop(
         CommandRegistry commandRegistry,
@@ -46,7 +45,7 @@ public sealed class ReplLoop
     /// </summary>
     /// <param name="commandRegistry">The registry that provides access to available commands.</param>
     /// <param name="aliasResolver">The resolver used to expand command aliases entered in the REPL.</param>
-    /// <param name="sessionService">The session service for accessing session directories.</param>
+    /// <param name="sessionService">The session service for managing session state.</param>
     /// <param name="configurationService">The configuration service for loading resource aliases.</param>
     /// <param name="outputWriter">The output writer for command output.</param>
     public ReplLoop(
@@ -76,7 +75,7 @@ public sealed class ReplLoop
         ReadLine.AutoCompletionHandler = new CommandAutoCompleteHandler(_commandRegistry);
 
         // Load history for any active session at startup
-        if (_currentSession is { } initialSession)
+        if (_sessionService.CurrentSession is { } initialSession)
         {
             LoadHistoryForSession(initialSession.TicketId);
             _lastSessionId = initialSession.TicketId;
@@ -104,7 +103,7 @@ public sealed class ReplLoop
             ReadLine.AddHistory(input);
 
             // Expand any command aliases before processing
-            var aliasResult = await _aliasResolver.ExpandAsync(input, _currentSession, cancellationToken);
+            var aliasResult = await _aliasResolver.ExpandAsync(input, _sessionService.CurrentSession, cancellationToken);
 
             if (!aliasResult.IsSuccess)
             {
@@ -147,15 +146,11 @@ public sealed class ReplLoop
             try
             {
                 var args = InputParser.GetArguments(tokens);
-                var context = new CommandContext(_currentSession, _outputWriter);
+                var context = new CommandContext(_sessionService, _outputWriter);
                 var result = await command.ExecuteAsync(args, context, cancellationToken);
 
                 if (!result.Success && result.Message is not null)
                     AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(result.Message)}");
-
-                // Handle session changes from commands
-                if (result.NewSession is { } sessionChange)
-                    _currentSession = sessionChange.Session;
 
                 // Session may have changed - handle history persistence
                 HandleSessionChange();
@@ -176,17 +171,17 @@ public sealed class ReplLoop
 
     private string GetPrompt()
     {
-        if (_currentSession is not { } session)
+        if (_sessionService.CurrentSession is not { } session)
             return "[green]ns[/]\u203a ";
 
         var prompt = $"[green]ns[/][[[cyan]{Markup.Escape(session.TicketId)}[/]]]";
 
         // Append active context aliases
-        var context = session.ActiveContext;
-        if (context?.ActiveCosmosAlias is { } cosmosAlias)
+        var sessionContext = session.ActiveContext;
+        if (sessionContext?.ActiveCosmosAlias is { } cosmosAlias)
             prompt += $"[[[orange1]{Markup.Escape(cosmosAlias)}[/]]]";
 
-        if (context?.ActiveBlobAlias is { } blobAlias)
+        if (sessionContext?.ActiveBlobAlias is { } blobAlias)
             prompt += $"[[[magenta]{Markup.Escape(blobAlias)}[/]]]";
 
         return prompt + "\u203a ";
@@ -203,7 +198,7 @@ public sealed class ReplLoop
 
     private void HandleSessionChange()
     {
-        var currentSessionId = _currentSession?.TicketId;
+        var currentSessionId = _sessionService.CurrentSession?.TicketId;
 
         // If session changed, save history to old session and load from new session
         if (currentSessionId != _lastSessionId)
@@ -220,7 +215,7 @@ public sealed class ReplLoop
 
     private void SaveHistory()
     {
-        if (_currentSession is { } session)
+        if (_sessionService.CurrentSession is { } session)
             SaveHistoryForSession(session.TicketId);
     }
 

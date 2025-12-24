@@ -9,23 +9,23 @@ namespace NimbusStation.Tests.Cli.Commands;
 
 public sealed class InfoCommandTests
 {
+    private readonly StubSessionService _sessionService;
     private readonly StubConfigurationService _configurationService;
     private readonly InfoCommand _command;
     private readonly CaptureOutputWriter _outputWriter;
 
     public InfoCommandTests()
     {
+        _sessionService = new StubSessionService();
         _configurationService = new StubConfigurationService();
         _command = new InfoCommand(_configurationService);
         _outputWriter = new CaptureOutputWriter();
     }
 
-    #region No Session Tests
-
     [Fact]
     public async Task ExecuteAsync_NoSession_ReturnsError()
     {
-        var context = new CommandContext(CurrentSession: null, Output: _outputWriter);
+        var context = new CommandContext(_sessionService, _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
@@ -33,15 +33,11 @@ public sealed class InfoCommandTests
         Assert.Contains("No active session", result.Message);
     }
 
-    #endregion
-
-    #region No Context Tests
-
     [Fact]
     public async Task ExecuteAsync_NoActiveContext_ReturnsSuccess()
     {
-        var session = Session.Create("TEST-123");
-        var context = new CommandContext(session, _outputWriter);
+        _sessionService.CurrentSession = Session.Create("TEST-123");
+        var context = new CommandContext(_sessionService, _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
@@ -51,18 +47,13 @@ public sealed class InfoCommandTests
     [Fact]
     public async Task ExecuteAsync_EmptyContext_ReturnsSuccess()
     {
-        var session = Session.Create("TEST-123")
-            .WithContext(SessionContext.Empty);
-        var context = new CommandContext(session, _outputWriter);
+        _sessionService.CurrentSession = Session.Create("TEST-123").WithContext(SessionContext.Empty);
+        var context = new CommandContext(_sessionService, _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
         Assert.True(result.Success);
     }
-
-    #endregion
-
-    #region Cosmos Context Tests
 
     [Fact]
     public async Task ExecuteAsync_WithCosmosContext_ReturnsSuccess()
@@ -71,9 +62,9 @@ public sealed class InfoCommandTests
             "https://prod.documents.azure.com:443/",
             "MainDb",
             "Users"));
-        var session = Session.Create("TEST-123")
+        _sessionService.CurrentSession = Session.Create("TEST-123")
             .WithContext(new SessionContext("prod-main", null));
-        var context = new CommandContext(session, _outputWriter);
+        var context = new CommandContext(_sessionService, _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
@@ -83,27 +74,22 @@ public sealed class InfoCommandTests
     [Fact]
     public async Task ExecuteAsync_WithCosmosContextMissingConfig_ReturnsSuccess()
     {
-        // Alias exists in session but not in config (e.g., config was edited)
-        var session = Session.Create("TEST-123")
+        _sessionService.CurrentSession = Session.Create("TEST-123")
             .WithContext(new SessionContext("missing-alias", null));
-        var context = new CommandContext(session, _outputWriter);
+        var context = new CommandContext(_sessionService, _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
         Assert.True(result.Success);
     }
 
-    #endregion
-
-    #region Blob Context Tests
-
     [Fact]
     public async Task ExecuteAsync_WithBlobContext_ReturnsSuccess()
     {
         _configurationService.AddBlobAlias("prod-logs", new BlobAliasConfig("prodlogs", "applogs"));
-        var session = Session.Create("TEST-123")
+        _sessionService.CurrentSession = Session.Create("TEST-123")
             .WithContext(new SessionContext(null, "prod-logs"));
-        var context = new CommandContext(session, _outputWriter);
+        var context = new CommandContext(_sessionService, _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
@@ -113,19 +99,14 @@ public sealed class InfoCommandTests
     [Fact]
     public async Task ExecuteAsync_WithBlobContextMissingConfig_ReturnsSuccess()
     {
-        // Alias exists in session but not in config
-        var session = Session.Create("TEST-123")
+        _sessionService.CurrentSession = Session.Create("TEST-123")
             .WithContext(new SessionContext(null, "missing-blob"));
-        var context = new CommandContext(session, _outputWriter);
+        var context = new CommandContext(_sessionService, _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
         Assert.True(result.Success);
     }
-
-    #endregion
-
-    #region Both Contexts Tests
 
     [Fact]
     public async Task ExecuteAsync_WithBothContexts_ReturnsSuccess()
@@ -135,18 +116,14 @@ public sealed class InfoCommandTests
             "MainDb",
             "Users"));
         _configurationService.AddBlobAlias("prod-logs", new BlobAliasConfig("prodlogs", "applogs"));
-        var session = Session.Create("TEST-123")
+        _sessionService.CurrentSession = Session.Create("TEST-123")
             .WithContext(new SessionContext("prod-main", "prod-logs"));
-        var context = new CommandContext(session, _outputWriter);
+        var context = new CommandContext(_sessionService, _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
         Assert.True(result.Success);
     }
-
-    #endregion
-
-    #region Command Properties Tests
 
     [Fact]
     public void Name_ReturnsInfo()
@@ -165,6 +142,4 @@ public sealed class InfoCommandTests
     {
         Assert.Equal("info", _command.Usage);
     }
-
-    #endregion
 }

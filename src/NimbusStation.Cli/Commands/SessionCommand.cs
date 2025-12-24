@@ -69,13 +69,14 @@ public sealed class SessionCommand : ICommand
         {
             var existed = _sessionService.SessionExists(sessionName);
             var session = await _sessionService.StartSessionAsync(sessionName, cancellationToken);
+            _sessionService.CurrentSession = session;
 
             var action = existed ? "Resumed" : "Started";
 
             context.Output.WriteLine($"[green]{action} session[/] [cyan]{session.TicketId}[/]");
             context.Output.WriteLine($"[dim]Session directory: {_sessionService.GetSessionDirectory(sessionName)}[/]");
 
-            return CommandResult.OkWithSession(session);
+            return CommandResult.Ok();
         }
         catch (InvalidSessionNameException ex)
         {
@@ -113,15 +114,16 @@ public sealed class SessionCommand : ICommand
         return CommandResult.Ok(sessions);
     }
 
-    private static CommandResult HandleLeave(CommandContext context)
+    private CommandResult HandleLeave(CommandContext context)
     {
         if (context.CurrentSession is null)
             return CommandResult.Error("No active session to leave.");
 
         var sessionName = context.CurrentSession.TicketId;
+        _sessionService.CurrentSession = null;
 
         context.Output.WriteLine($"[yellow]Left session[/] [cyan]{sessionName}[/]");
-        return CommandResult.OkWithSession(session: null);
+        return CommandResult.Ok();
     }
 
     private async Task<CommandResult> HandleResumeAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
@@ -134,9 +136,10 @@ public sealed class SessionCommand : ICommand
         try
         {
             var session = await _sessionService.ResumeSessionAsync(sessionName, cancellationToken);
+            _sessionService.CurrentSession = session;
 
             context.Output.WriteLine($"[green]Resumed session[/] [cyan]{session.TicketId}[/]");
-            return CommandResult.OkWithSession(session);
+            return CommandResult.Ok();
         }
         catch (SessionNotFoundException ex)
         {

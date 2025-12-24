@@ -96,10 +96,12 @@ public sealed class UseCommand : ICommand
             newContext,
             cancellationToken);
 
+        _sessionService.CurrentSession = updatedSession;
+
         context.Output.WriteLine($"[green]Context set:[/] [orange1]cosmos/{aliasName}[/]");
         context.Output.WriteLine($"[dim]Endpoint: {aliasConfig.Endpoint}[/]");
 
-        return CommandResult.OkWithSession(updatedSession);
+        return CommandResult.Ok();
     }
 
     private async Task<CommandResult> HandleSetBlobAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
@@ -122,10 +124,12 @@ public sealed class UseCommand : ICommand
             newContext,
             cancellationToken);
 
+        _sessionService.CurrentSession = updatedSession;
+
         context.Output.WriteLine($"[green]Context set:[/] [magenta]blob/{aliasName}[/]");
         context.Output.WriteLine($"[dim]Account: {aliasConfig.Account}[/]");
 
-        return CommandResult.OkWithSession(updatedSession);
+        return CommandResult.Ok();
     }
 
     private async Task<CommandResult> HandleClearAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
@@ -164,8 +168,10 @@ public sealed class UseCommand : ICommand
             newContext,
             cancellationToken);
 
+        _sessionService.CurrentSession = updatedSession;
+
         context.Output.WriteLine($"[yellow]{message}[/]");
 
-        return CommandResult.OkWithSession(updatedSession);
+        return CommandResult.Ok();
     }
 }

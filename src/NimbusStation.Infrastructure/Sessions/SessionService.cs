@@ -17,6 +17,9 @@ public sealed class SessionService : ISessionService
     private readonly SessionSerializer _serializer;
     private readonly string _sessionsRoot;
 
+    /// <inheritdoc/>
+    public Session? CurrentSession { get; set; }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="SessionService"/> class.
     /// </summary>

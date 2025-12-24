@@ -6,6 +6,11 @@ namespace NimbusStation.Core.Session;
 public interface ISessionService
 {
     /// <summary>
+    /// Gets or sets the currently active session for the REPL.
+    /// </summary>
+    Session? CurrentSession { get; set; }
+
+    /// <summary>
     /// Starts a session with the specified name. Creates a new session if it doesn't exist,
     /// or resumes the existing session if it does.
     /// </summary>
