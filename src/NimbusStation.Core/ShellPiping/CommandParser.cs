@@ -13,7 +13,13 @@ public static class CommandParser
     /// <remarks>
     /// <para>
     /// Handles quoted arguments correctly. The first unquoted whitespace separates
-    /// the command from arguments. Everything after is preserved as-is.
+    /// the command from arguments. Everything after is preserved as-is and passed
+    /// directly to the process.
+    /// </para>
+    /// <para>
+    /// <strong>Note:</strong> Escape sequences within quotes (e.g., <c>\"</c>) are not
+    /// specially handled. The arguments string is passed as-is to the process, which
+    /// will handle any escape interpretation according to its own rules.
     /// </para>
     /// <para>Examples:</para>
     /// <list type="bullet">

@@ -102,19 +102,14 @@ public class ExternalProcessExecutorTests
     {
         using var cts = new CancellationTokenSource();
 
-        // Start a long-running process
-        var task = _executor.ExecuteAsync(
+        // Schedule cancellation shortly after starting a long-running process.
+        // Using CancelAfter is more reliable than Task.Delay + Cancel.
+        cts.CancelAfter(TimeSpan.FromMilliseconds(100));
+
+        var result = await _executor.ExecuteAsync(
             command: "sleep",
             arguments: "10",
             cancellationToken: cts.Token);
-
-        // Give the process time to start
-        await Task.Delay(100);
-
-        // Cancel it
-        cts.Cancel();
-
-        var result = await task;
 
         Assert.True(result.WasKilled);
         Assert.False(result.IsSuccess);

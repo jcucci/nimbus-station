@@ -7,6 +7,17 @@ namespace NimbusStation.Infrastructure.ShellPiping;
 /// <summary>
 /// Executes external processes with stdin streaming and output capture.
 /// </summary>
+/// <remarks>
+/// <para>
+/// This executor spawns processes directly without shell interpretation. The command
+/// and arguments are passed directly to <see cref="ProcessStartInfo"/>.
+/// </para>
+/// <para>
+/// <strong>Security note:</strong> This class does not perform any validation or
+/// sanitization of command or argument inputs. Callers should validate inputs if
+/// they originate from untrusted sources to prevent command injection attacks.
+/// </para>
+/// </remarks>
 public sealed class ExternalProcessExecutor : IExternalProcessExecutor
 {
     /// <inheritdoc/>
@@ -43,19 +54,19 @@ public sealed class ExternalProcessExecutor : IExternalProcessExecutor
         {
             var stdoutBuilder = new StringBuilder();
             var stderrBuilder = new StringBuilder();
-            var wasKilled = false;
+            var wasKilled = 0; // Use int for Interlocked operations
 
             // Set up cancellation to kill the process
             await using var registration = cancellationToken.Register(() =>
             {
-                wasKilled = true;
+                Interlocked.Exchange(ref wasKilled, 1);
                 try
                 {
                     process.Kill(entireProcessTree: true);
                 }
-                catch
+                catch (InvalidOperationException)
                 {
-                    // Process may have already exited
+                    // Process has already exited
                 }
             });
 
@@ -73,7 +84,7 @@ public sealed class ExternalProcessExecutor : IExternalProcessExecutor
                 else
                 {
                     // Close stdin immediately if we have no content to write
-                    process.StandardInput.Close();
+                    await process.StandardInput.DisposeAsync();
                 }
 
                 // Read stdout
@@ -90,12 +101,13 @@ public sealed class ExternalProcessExecutor : IExternalProcessExecutor
                 {
                     await Task.WhenAll(tasks);
                 }
-                catch (OperationCanceledException) when (wasKilled)
+                catch (OperationCanceledException)
                 {
-                    // Expected when cancelled
+                    // Expected when cancelled - mark as killed if not already
+                    Interlocked.Exchange(ref wasKilled, 1);
                 }
 
-                if (wasKilled)
+                if (Volatile.Read(ref wasKilled) == 1)
                 {
                     return ProcessResult.Killed(
                         stdoutBuilder.ToString(),
@@ -108,8 +120,10 @@ public sealed class ExternalProcessExecutor : IExternalProcessExecutor
                     StandardError: stderrBuilder.ToString(),
                     WasKilled: false);
             }
-            catch (OperationCanceledException) when (wasKilled)
+            catch (OperationCanceledException)
             {
+                // Cancelled - mark as killed and return
+                Interlocked.Exchange(ref wasKilled, 1);
                 return ProcessResult.Killed(
                     stdoutBuilder.ToString(),
                     stderrBuilder.ToString());

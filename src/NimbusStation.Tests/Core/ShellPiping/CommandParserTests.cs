@@ -129,4 +129,33 @@ public class CommandParserTests
         Assert.Equal("wc", command);
         Assert.Equal("-l", arguments);
     }
+
+    [Fact]
+    public void Parse_UnclosedDoubleQuote_SplitsAtSpaceBeforeQuote()
+    {
+        // The space before the quote is found first, so it splits there
+        var (command, arguments) = CommandParser.Parse("echo \"unclosed");
+
+        Assert.Equal("echo", command);
+        Assert.Equal("\"unclosed", arguments);
+    }
+
+    [Fact]
+    public void Parse_UnclosedSingleQuote_SplitsAtSpaceBeforeQuote()
+    {
+        var (command, arguments) = CommandParser.Parse("jq '.name");
+
+        Assert.Equal("jq", command);
+        Assert.Equal("'.name", arguments);
+    }
+
+    [Fact]
+    public void Parse_UnclosedQuoteWithNoSpaceBeforeQuote_TreatsEntireStringAsCommand()
+    {
+        // Quote starts in command name, no space found, so entire string is command
+        var (command, arguments) = CommandParser.Parse("\"quoted-command arg");
+
+        Assert.Equal("\"quoted-command arg", command);
+        Assert.Null(arguments);
+    }
 }
