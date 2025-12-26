@@ -1,35 +1,39 @@
+using NimbusStation.Core.Output;
 using NimbusStation.Core.Session;
 
 namespace NimbusStation.Core.Commands;
 
 /// <summary>
-/// Provides context for command execution, including the current session state.
+/// Provides context for command execution, including read-only access to the current session
+/// and output writer for producing command output.
 /// </summary>
 public sealed class CommandContext
 {
+    private readonly ISessionStateManager _sessionStateManager;
+
     /// <summary>
-    /// Gets or sets the currently active session, if any.
+    /// Initializes a new instance of the <see cref="CommandContext"/> class.
     /// </summary>
-    public Session.Session? CurrentSession { get; set; }
+    /// <param name="sessionStateManager">The session state manager for reading current session state.</param>
+    /// <param name="output">The output writer for command results.</param>
+    public CommandContext(ISessionStateManager sessionStateManager, IOutputWriter output)
+    {
+        _sessionStateManager = sessionStateManager ?? throw new ArgumentNullException(nameof(sessionStateManager));
+        Output = output ?? throw new ArgumentNullException(nameof(output));
+    }
+
+    /// <summary>
+    /// Gets the currently active session, if any.
+    /// </summary>
+    public Session.Session? CurrentSession => _sessionStateManager.CurrentSession;
 
     /// <summary>
     /// Gets a value indicating whether a session is currently active.
     /// </summary>
-    public bool HasActiveSession => CurrentSession is not null;
+    public bool HasActiveSession => _sessionStateManager.HasActiveSession;
 
     /// <summary>
-    /// Creates a new command context with no active session.
+    /// Gets the output writer for command results.
     /// </summary>
-    public CommandContext()
-    {
-    }
-
-    /// <summary>
-    /// Creates a new command context with the specified session.
-    /// </summary>
-    /// <param name="session">The current session.</param>
-    public CommandContext(Session.Session? session)
-    {
-        CurrentSession = session;
-    }
+    public IOutputWriter Output { get; }
 }

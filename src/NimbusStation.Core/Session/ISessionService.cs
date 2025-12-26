@@ -1,7 +1,7 @@
 namespace NimbusStation.Core.Session;
 
 /// <summary>
-/// Service for managing session lifecycle operations.
+/// Service for managing session persistence operations.
 /// </summary>
 public interface ISessionService
 {

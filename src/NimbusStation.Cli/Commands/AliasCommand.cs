@@ -50,23 +50,23 @@ public sealed class AliasCommand : ICommand
 
         return subcommand switch
         {
-            "list" or "ls" => await HandleListAsync(cancellationToken),
-            "show" => await HandleShowAsync(subArgs, cancellationToken),
-            "add" => await HandleAddAsync(subArgs, cancellationToken),
-            "remove" or "rm" => await HandleRemoveAsync(subArgs, cancellationToken),
+            "list" or "ls" => await HandleListAsync(context, cancellationToken),
+            "show" => await HandleShowAsync(subArgs, context, cancellationToken),
+            "add" => await HandleAddAsync(subArgs, context, cancellationToken),
+            "remove" or "rm" => await HandleRemoveAsync(subArgs, context, cancellationToken),
             "test" => await HandleTestAsync(subArgs, context, cancellationToken),
             _ => CommandResult.Error($"Unknown subcommand '{subcommand}'. Usage: {Usage}")
         };
     }
 
-    private async Task<CommandResult> HandleListAsync(CancellationToken cancellationToken)
+    private async Task<CommandResult> HandleListAsync(CommandContext context, CancellationToken cancellationToken)
     {
         await _aliasService.LoadAliasesAsync(cancellationToken);
         var aliases = _aliasService.GetAllAliases();
 
         if (aliases.Count == 0)
         {
-            AnsiConsole.MarkupLine("[dim]No aliases defined. Use 'alias add <name> \"<expansion>\"' to create one.[/]");
+            context.Output.WriteLine("[dim]No aliases defined. Use 'alias add <name> \"<expansion>\"' to create one.[/]");
             return CommandResult.Ok();
         }
 
@@ -81,13 +81,13 @@ public sealed class AliasCommand : ICommand
                 $"[dim]{Markup.Escape(TruncateExpansion(expansion, maxLength: 60))}[/]");
         }
 
-        AnsiConsole.Write(table);
-        AnsiConsole.MarkupLine($"[dim]{aliases.Count} alias(es) defined[/]");
+        context.Output.WriteRenderable(table);
+        context.Output.WriteLine($"[dim]{aliases.Count} alias(es) defined[/]");
 
         return CommandResult.Ok(aliases);
     }
 
-    private async Task<CommandResult> HandleShowAsync(string[] args, CancellationToken cancellationToken)
+    private async Task<CommandResult> HandleShowAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
     {
         if (args.Length == 0)
             return CommandResult.Error("Usage: alias show <name>");
@@ -99,7 +99,7 @@ public sealed class AliasCommand : ICommand
         if (!aliases.TryGetValue(name, out var expansion))
             return CommandResult.Error($"Alias '{name}' not found.");
 
-        AnsiConsole.MarkupLine($"[cyan]{Markup.Escape(name)}[/] = [green]\"{Markup.Escape(expansion)}\"[/]");
+        context.Output.WriteLine($"[cyan]{Markup.Escape(name)}[/] = [green]\"{Markup.Escape(expansion)}\"[/]");
 
         // Show parameter info if the alias has placeholders
         var placeholders = System.Text.RegularExpressions.Regex.Matches(expansion, @"\{(\d+)\}");
@@ -107,19 +107,19 @@ public sealed class AliasCommand : ICommand
         {
             var maxIndex = placeholders.Select(m => int.Parse(m.Groups[1].Value)).Max();
             var paramList = string.Join(", ", Enumerable.Range(0, maxIndex + 1).Select(i => $"{{[cyan]{i}[/]}}"));
-            AnsiConsole.MarkupLine($"[dim]Parameters: {paramList}[/]");
+            context.Output.WriteLine($"[dim]Parameters: {paramList}[/]");
         }
 
         // Show built-in variables used
         var builtInVars = new[] { "{ticket}", "{session-dir}", "{today}", "{now}", "{user}" };
         var usedVars = builtInVars.Where(v => expansion.Contains(v, StringComparison.OrdinalIgnoreCase)).ToList();
         if (usedVars.Count > 0)
-            AnsiConsole.MarkupLine($"[dim]Variables: {string.Join(", ", usedVars)}[/]");
+            context.Output.WriteLine($"[dim]Variables: {string.Join(", ", usedVars)}[/]");
 
         return CommandResult.Ok(expansion);
     }
 
-    private async Task<CommandResult> HandleAddAsync(string[] args, CancellationToken cancellationToken)
+    private async Task<CommandResult> HandleAddAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
     {
         if (args.Length < 2)
             return CommandResult.Error("Usage: alias add <name> \"<expansion>\"");
@@ -134,7 +134,7 @@ public sealed class AliasCommand : ICommand
         try
         {
             await _aliasService.AddAliasAsync(name, expansion, cancellationToken);
-            AnsiConsole.MarkupLine($"[green]Added alias[/] [cyan]{Markup.Escape(name)}[/] = \"{Markup.Escape(expansion)}\"");
+            context.Output.WriteLine($"[green]Added alias[/] [cyan]{Markup.Escape(name)}[/] = \"{Markup.Escape(expansion)}\"");
             return CommandResult.Ok();
         }
         catch (ArgumentException ex)
@@ -143,7 +143,7 @@ public sealed class AliasCommand : ICommand
         }
     }
 
-    private async Task<CommandResult> HandleRemoveAsync(string[] args, CancellationToken cancellationToken)
+    private async Task<CommandResult> HandleRemoveAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
     {
         if (args.Length == 0)
             return CommandResult.Error("Usage: alias remove <name>");
@@ -154,7 +154,7 @@ public sealed class AliasCommand : ICommand
         if (!removed)
             return CommandResult.Error($"Alias '{name}' not found.");
 
-        AnsiConsole.MarkupLine($"[red]Removed alias[/] [cyan]{Markup.Escape(name)}[/]");
+        context.Output.WriteLine($"[red]Removed alias[/] [cyan]{Markup.Escape(name)}[/]");
         return CommandResult.Ok();
     }
 
@@ -177,14 +177,14 @@ public sealed class AliasCommand : ICommand
 
         if (!result.WasExpanded)
         {
-            AnsiConsole.MarkupLine($"[yellow]'{Markup.Escape(aliasName)}' is not a defined alias[/]");
+            context.Output.WriteLine($"[yellow]'{Markup.Escape(aliasName)}' is not a defined alias[/]");
             return CommandResult.Ok();
         }
 
-        AnsiConsole.MarkupLine("[dim]Input:[/]");
-        AnsiConsole.MarkupLine($"  [cyan]{Markup.Escape(aliasName)}[/] {Markup.Escape(string.Join(" ", aliasArgs))}");
-        AnsiConsole.MarkupLine("[dim]Expands to:[/]");
-        AnsiConsole.MarkupLine($"  [green]{Markup.Escape(result.ExpandedInput)}[/]");
+        context.Output.WriteLine("[dim]Input:[/]");
+        context.Output.WriteLine($"  [cyan]{Markup.Escape(aliasName)}[/] {Markup.Escape(string.Join(" ", aliasArgs))}");
+        context.Output.WriteLine("[dim]Expands to:[/]");
+        context.Output.WriteLine($"  [green]{Markup.Escape(result.ExpandedInput)}[/]");
 
         return CommandResult.Ok(result.ExpandedInput);
     }

@@ -2,6 +2,7 @@ using NimbusStation.Cli.Commands;
 using NimbusStation.Core.Commands;
 using NimbusStation.Core.Session;
 using NimbusStation.Infrastructure.Configuration;
+using NimbusStation.Infrastructure.Output;
 using NimbusStation.Tests.Fixtures;
 
 namespace NimbusStation.Tests.Cli.Commands;
@@ -9,22 +10,24 @@ namespace NimbusStation.Tests.Cli.Commands;
 public sealed class UseCommandTests
 {
     private readonly StubSessionService _sessionService;
+    private readonly StubSessionStateManager _sessionStateManager;
     private readonly StubConfigurationService _configurationService;
     private readonly UseCommand _command;
+    private readonly CaptureOutputWriter _outputWriter;
 
     public UseCommandTests()
     {
         _sessionService = new StubSessionService();
+        _sessionStateManager = new StubSessionStateManager();
         _configurationService = new StubConfigurationService();
-        _command = new UseCommand(_sessionService, _configurationService);
+        _command = new UseCommand(_sessionService, _sessionStateManager, _configurationService);
+        _outputWriter = new CaptureOutputWriter();
     }
-
-    #region No Session Tests
 
     [Fact]
     public async Task ExecuteAsync_NoSession_ReturnsError()
     {
-        var context = new CommandContext();
+        var context = new CommandContext(_sessionStateManager, _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
@@ -35,17 +38,13 @@ public sealed class UseCommandTests
     [Fact]
     public async Task ExecuteAsync_NoSessionWithArgs_ReturnsError()
     {
-        var context = new CommandContext();
+        var context = new CommandContext(_sessionStateManager, _outputWriter);
 
         var result = await _command.ExecuteAsync(["cosmos", "test-alias"], context);
 
         Assert.False(result.Success);
         Assert.Contains("No active session", result.Message);
     }
-
-    #endregion
-
-    #region Show Context Tests
 
     [Fact]
     public async Task ExecuteAsync_NoArgs_ShowsCurrentContext()
@@ -60,18 +59,14 @@ public sealed class UseCommandTests
     [Fact]
     public async Task ExecuteAsync_NoArgsWithActiveContext_ShowsContextDetails()
     {
-        var session = Session.Create("TEST-123")
-            .WithContext(new SessionContext("my-cosmos", "my-blob"));
-        var context = new CommandContext { CurrentSession = session };
+        _sessionStateManager.ActivateSession(Session.Create("TEST-123")
+            .WithContext(new SessionContext("my-cosmos", "my-blob")));
+        var context = new CommandContext(_sessionStateManager, _outputWriter);
 
         var result = await _command.ExecuteAsync([], context);
 
         Assert.True(result.Success);
     }
-
-    #endregion
-
-    #region Use Cosmos Tests
 
     [Fact]
     public async Task ExecuteAsync_CosmosWithValidAlias_SetsContext()
@@ -85,7 +80,7 @@ public sealed class UseCommandTests
         var result = await _command.ExecuteAsync(["cosmos", "prod-main"], context);
 
         Assert.True(result.Success);
-        Assert.Equal("prod-main", context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
+        Assert.Equal("prod-main", _sessionStateManager.CurrentSession?.ActiveContext?.ActiveCosmosAlias);
     }
 
     [Fact]
@@ -95,16 +90,15 @@ public sealed class UseCommandTests
             "https://prod.documents.azure.com:443/",
             "MainDb",
             "Users"));
-        var session = Session.Create("TEST-123")
-            .WithContext(new SessionContext(null, "existing-blob"));
-        var context = new CommandContext { CurrentSession = session };
-        _sessionService.SetSession(session);
+        _sessionStateManager.ActivateSession(Session.Create("TEST-123")
+            .WithContext(new SessionContext(null, "existing-blob")));
+        var context = new CommandContext(_sessionStateManager, _outputWriter);
 
         var result = await _command.ExecuteAsync(["cosmos", "prod-main"], context);
 
         Assert.True(result.Success);
-        Assert.Equal("prod-main", context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
-        Assert.Equal("existing-blob", context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.Equal("prod-main", _sessionStateManager.CurrentSession?.ActiveContext?.ActiveCosmosAlias);
+        Assert.Equal("existing-blob", _sessionStateManager.CurrentSession?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
@@ -130,10 +124,6 @@ public sealed class UseCommandTests
         Assert.Contains("Usage", result.Message);
     }
 
-    #endregion
-
-    #region Use Blob Tests
-
     [Fact]
     public async Task ExecuteAsync_BlobWithValidAlias_SetsContext()
     {
@@ -143,23 +133,22 @@ public sealed class UseCommandTests
         var result = await _command.ExecuteAsync(["blob", "prod-logs"], context);
 
         Assert.True(result.Success);
-        Assert.Equal("prod-logs", context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.Equal("prod-logs", _sessionStateManager.CurrentSession?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
     public async Task ExecuteAsync_BlobWithValidAlias_PreservesCosmosContext()
     {
         _configurationService.AddBlobAlias("prod-logs", new BlobAliasConfig("prodlogs", "applogs"));
-        var session = Session.Create("TEST-123")
-            .WithContext(new SessionContext("existing-cosmos", null));
-        var context = new CommandContext { CurrentSession = session };
-        _sessionService.SetSession(session);
+        _sessionStateManager.ActivateSession(Session.Create("TEST-123")
+            .WithContext(new SessionContext("existing-cosmos", null)));
+        var context = new CommandContext(_sessionStateManager, _outputWriter);
 
         var result = await _command.ExecuteAsync(["blob", "prod-logs"], context);
 
         Assert.True(result.Success);
-        Assert.Equal("existing-cosmos", context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
-        Assert.Equal("prod-logs", context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.Equal("existing-cosmos", _sessionStateManager.CurrentSession?.ActiveContext?.ActiveCosmosAlias);
+        Assert.Equal("prod-logs", _sessionStateManager.CurrentSession?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
@@ -185,53 +174,46 @@ public sealed class UseCommandTests
         Assert.Contains("Usage", result.Message);
     }
 
-    #endregion
-
-    #region Use Clear Tests
-
     [Fact]
     public async Task ExecuteAsync_Clear_ClearsAllContexts()
     {
-        var session = Session.Create("TEST-123")
-            .WithContext(new SessionContext("my-cosmos", "my-blob"));
-        var context = new CommandContext { CurrentSession = session };
-        _sessionService.SetSession(session);
+        _sessionStateManager.ActivateSession(Session.Create("TEST-123")
+            .WithContext(new SessionContext("my-cosmos", "my-blob")));
+        var context = new CommandContext(_sessionStateManager, _outputWriter);
 
         var result = await _command.ExecuteAsync(["clear"], context);
 
         Assert.True(result.Success);
-        Assert.Null(context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
-        Assert.Null(context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.Null(_sessionStateManager.CurrentSession?.ActiveContext?.ActiveCosmosAlias);
+        Assert.Null(_sessionStateManager.CurrentSession?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
     public async Task ExecuteAsync_ClearCosmos_ClearsOnlyCosmos()
     {
-        var session = Session.Create("TEST-123")
-            .WithContext(new SessionContext("my-cosmos", "my-blob"));
-        var context = new CommandContext { CurrentSession = session };
-        _sessionService.SetSession(session);
+        _sessionStateManager.ActivateSession(Session.Create("TEST-123")
+            .WithContext(new SessionContext("my-cosmos", "my-blob")));
+        var context = new CommandContext(_sessionStateManager, _outputWriter);
 
         var result = await _command.ExecuteAsync(["clear", "cosmos"], context);
 
         Assert.True(result.Success);
-        Assert.Null(context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
-        Assert.Equal("my-blob", context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.Null(_sessionStateManager.CurrentSession?.ActiveContext?.ActiveCosmosAlias);
+        Assert.Equal("my-blob", _sessionStateManager.CurrentSession?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
     public async Task ExecuteAsync_ClearBlob_ClearsOnlyBlob()
     {
-        var session = Session.Create("TEST-123")
-            .WithContext(new SessionContext("my-cosmos", "my-blob"));
-        var context = new CommandContext { CurrentSession = session };
-        _sessionService.SetSession(session);
+        _sessionStateManager.ActivateSession(Session.Create("TEST-123")
+            .WithContext(new SessionContext("my-cosmos", "my-blob")));
+        var context = new CommandContext(_sessionStateManager, _outputWriter);
 
         var result = await _command.ExecuteAsync(["clear", "blob"], context);
 
         Assert.True(result.Success);
-        Assert.Equal("my-cosmos", context.CurrentSession!.ActiveContext?.ActiveCosmosAlias);
-        Assert.Null(context.CurrentSession!.ActiveContext?.ActiveBlobAlias);
+        Assert.Equal("my-cosmos", _sessionStateManager.CurrentSession?.ActiveContext?.ActiveCosmosAlias);
+        Assert.Null(_sessionStateManager.CurrentSession?.ActiveContext?.ActiveBlobAlias);
     }
 
     [Fact]
@@ -245,10 +227,6 @@ public sealed class UseCommandTests
         Assert.Contains("Unknown provider", result.Message);
     }
 
-    #endregion
-
-    #region Unknown Provider Tests
-
     [Fact]
     public async Task ExecuteAsync_UnknownProvider_ReturnsError()
     {
@@ -260,10 +238,6 @@ public sealed class UseCommandTests
         Assert.Contains("Unknown provider", result.Message);
         Assert.Contains("queue", result.Message);
     }
-
-    #endregion
-
-    #region Command Properties Tests
 
     [Fact]
     public void Name_ReturnsUse()
@@ -279,56 +253,9 @@ public sealed class UseCommandTests
         Assert.Contains("clear", _command.Subcommands);
     }
 
-    #endregion
-
-    #region Helpers
-
     private CommandContext CreateContextWithSession()
     {
-        var session = Session.Create("TEST-123");
-        _sessionService.SetSession(session);
-        return new CommandContext { CurrentSession = session };
+        _sessionStateManager.ActivateSession(Session.Create("TEST-123"));
+        return new CommandContext(_sessionStateManager, _outputWriter);
     }
-
-    #endregion
-
-    #region Stub Implementations
-
-    private sealed class StubSessionService : ISessionService
-    {
-        private Session? _session;
-
-        public void SetSession(Session session) => _session = session;
-
-        public Task<Session> StartSessionAsync(string sessionName, CancellationToken cancellationToken = default)
-            => Task.FromResult(_session ?? Session.Create(sessionName));
-
-        public Task<IReadOnlyList<Session>> ListSessionsAsync(CancellationToken cancellationToken = default)
-            => Task.FromResult<IReadOnlyList<Session>>(_session is not null ? [_session] : []);
-
-        public Task<Session> ResumeSessionAsync(string sessionName, CancellationToken cancellationToken = default)
-            => Task.FromResult(_session ?? throw new SessionNotFoundException(sessionName));
-
-        public Task DeleteSessionAsync(string sessionName, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
-        public Task<Session> UpdateSessionContextAsync(string sessionName, SessionContext context, CancellationToken cancellationToken = default)
-        {
-            if (_session is null)
-                throw new SessionNotFoundException(sessionName);
-
-            _session = _session.WithContext(context);
-            return Task.FromResult(_session);
-        }
-
-        public bool SessionExists(string sessionName) => _session?.TicketId == sessionName;
-
-        public string GetSessionDirectory(string sessionName) => $"/tmp/nimbus/{sessionName}";
-
-        public string GetDownloadsDirectory(string sessionName) => $"/tmp/nimbus/{sessionName}/downloads";
-
-        public string GetQueriesDirectory(string sessionName) => $"/tmp/nimbus/{sessionName}/queries";
-    }
-
-    #endregion
 }
