@@ -10,6 +10,7 @@ namespace NimbusStation.Cli.Commands;
 public sealed class UseCommand : ICommand
 {
     private readonly ISessionService _sessionService;
+    private readonly ISessionStateManager _sessionStateManager;
     private readonly IConfigurationService _configurationService;
 
     private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
@@ -32,18 +33,23 @@ public sealed class UseCommand : ICommand
     /// <summary>
     /// Initializes a new instance of the <see cref="UseCommand"/> class.
     /// </summary>
-    /// <param name="sessionService">The session service.</param>
+    /// <param name="sessionService">The session service for persistence operations.</param>
+    /// <param name="sessionStateManager">The session state manager for active session tracking.</param>
     /// <param name="configurationService">The configuration service.</param>
-    public UseCommand(ISessionService sessionService, IConfigurationService configurationService)
+    public UseCommand(
+        ISessionService sessionService,
+        ISessionStateManager sessionStateManager,
+        IConfigurationService configurationService)
     {
         _sessionService = sessionService;
+        _sessionStateManager = sessionStateManager;
         _configurationService = configurationService;
     }
 
     /// <inheritdoc/>
     public async Task<CommandResult> ExecuteAsync(string[] args, CommandContext context, CancellationToken cancellationToken = default)
     {
-        if (context.CurrentSession is null)
+        if (!context.HasActiveSession)
             return CommandResult.Error("No active session. Use 'session start <ticket>' first.");
 
         if (args.Length == 0)
@@ -87,16 +93,14 @@ public sealed class UseCommand : ICommand
         if (aliasConfig is null)
             return CommandResult.Error($"Cosmos alias '{aliasName}' not found in config.");
 
-        var session = context.CurrentSession!;
-        var currentContext = session.ActiveContext ?? SessionContext.Empty;
-        var newContext = new SessionContext(aliasName, currentContext.ActiveBlobAlias);
+        // Update in-memory state
+        _sessionStateManager.SetCosmosAlias(aliasName);
 
-        var updatedSession = await _sessionService.UpdateSessionContextAsync(
-            session.TicketId,
-            newContext,
+        // Persist to disk
+        await _sessionService.UpdateSessionContextAsync(
+            context.CurrentSession!.TicketId,
+            context.CurrentSession.ActiveContext!,
             cancellationToken);
-
-        _sessionService.CurrentSession = updatedSession;
 
         context.Output.WriteLine($"[green]Context set:[/] [orange1]cosmos/{aliasName}[/]");
         context.Output.WriteLine($"[dim]Endpoint: {aliasConfig.Endpoint}[/]");
@@ -115,16 +119,14 @@ public sealed class UseCommand : ICommand
         if (aliasConfig is null)
             return CommandResult.Error($"Blob alias '{aliasName}' not found in config.");
 
-        var session = context.CurrentSession!;
-        var currentContext = session.ActiveContext ?? SessionContext.Empty;
-        var newContext = new SessionContext(currentContext.ActiveCosmosAlias, aliasName);
+        // Update in-memory state
+        _sessionStateManager.SetBlobAlias(aliasName);
 
-        var updatedSession = await _sessionService.UpdateSessionContextAsync(
-            session.TicketId,
-            newContext,
+        // Persist to disk
+        await _sessionService.UpdateSessionContextAsync(
+            context.CurrentSession!.TicketId,
+            context.CurrentSession.ActiveContext!,
             cancellationToken);
-
-        _sessionService.CurrentSession = updatedSession;
 
         context.Output.WriteLine($"[green]Context set:[/] [magenta]blob/{aliasName}[/]");
         context.Output.WriteLine($"[dim]Account: {aliasConfig.Account}[/]");
@@ -134,41 +136,38 @@ public sealed class UseCommand : ICommand
 
     private async Task<CommandResult> HandleClearAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
     {
-        var session = context.CurrentSession!;
-        var currentContext = session.ActiveContext ?? SessionContext.Empty;
-
-        SessionContext newContext;
         string message;
 
         if (args.Length == 0)
         {
             // Clear all contexts
-            newContext = SessionContext.Empty;
+            _sessionStateManager.ClearAllAliases();
             message = "Cleared all contexts.";
         }
         else
         {
             var provider = args[0].ToLowerInvariant();
 
-            if (provider is not "cosmos" and not "blob")
-                return CommandResult.Error($"Unknown provider '{args[0]}'. Available: cosmos, blob");
-
-            newContext = provider switch
+            switch (provider)
             {
-                "cosmos" => new SessionContext(null, currentContext.ActiveBlobAlias),
-                "blob" => new SessionContext(currentContext.ActiveCosmosAlias, null),
-                _ => throw new InvalidOperationException() // Unreachable due to check above
-            };
-
-            message = $"Cleared {provider} context.";
+                case "cosmos":
+                    _sessionStateManager.ClearCosmosAlias();
+                    message = "Cleared cosmos context.";
+                    break;
+                case "blob":
+                    _sessionStateManager.ClearBlobAlias();
+                    message = "Cleared blob context.";
+                    break;
+                default:
+                    return CommandResult.Error($"Unknown provider '{args[0]}'. Available: cosmos, blob");
+            }
         }
 
-        var updatedSession = await _sessionService.UpdateSessionContextAsync(
-            session.TicketId,
-            newContext,
+        // Persist to disk
+        await _sessionService.UpdateSessionContextAsync(
+            context.CurrentSession!.TicketId,
+            context.CurrentSession.ActiveContext ?? SessionContext.Empty,
             cancellationToken);
-
-        _sessionService.CurrentSession = updatedSession;
 
         context.Output.WriteLine($"[yellow]{message}[/]");
 

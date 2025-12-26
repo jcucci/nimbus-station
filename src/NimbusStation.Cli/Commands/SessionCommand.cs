@@ -10,6 +10,7 @@ namespace NimbusStation.Cli.Commands;
 public sealed class SessionCommand : ICommand
 {
     private readonly ISessionService _sessionService;
+    private readonly ISessionStateManager _sessionStateManager;
 
     private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -31,10 +32,12 @@ public sealed class SessionCommand : ICommand
     /// <summary>
     /// Initializes a new instance of the <see cref="SessionCommand"/> class.
     /// </summary>
-    /// <param name="sessionService">The session service.</param>
-    public SessionCommand(ISessionService sessionService)
+    /// <param name="sessionService">The session service for persistence operations.</param>
+    /// <param name="sessionStateManager">The session state manager for active session tracking.</param>
+    public SessionCommand(ISessionService sessionService, ISessionStateManager sessionStateManager)
     {
         _sessionService = sessionService;
+        _sessionStateManager = sessionStateManager;
     }
 
     /// <inheritdoc/>
@@ -69,7 +72,7 @@ public sealed class SessionCommand : ICommand
         {
             var existed = _sessionService.SessionExists(sessionName);
             var session = await _sessionService.StartSessionAsync(sessionName, cancellationToken);
-            _sessionService.CurrentSession = session;
+            _sessionStateManager.ActivateSession(session);
 
             var action = existed ? "Resumed" : "Started";
 
@@ -116,11 +119,11 @@ public sealed class SessionCommand : ICommand
 
     private CommandResult HandleLeave(CommandContext context)
     {
-        if (context.CurrentSession is null)
+        if (!context.HasActiveSession)
             return CommandResult.Error("No active session to leave.");
 
-        var sessionName = context.CurrentSession.TicketId;
-        _sessionService.CurrentSession = null;
+        var sessionName = context.CurrentSession!.TicketId;
+        _sessionStateManager.DeactivateSession();
 
         context.Output.WriteLine($"[yellow]Left session[/] [cyan]{sessionName}[/]");
         return CommandResult.Ok();
@@ -136,7 +139,7 @@ public sealed class SessionCommand : ICommand
         try
         {
             var session = await _sessionService.ResumeSessionAsync(sessionName, cancellationToken);
-            _sessionService.CurrentSession = session;
+            _sessionStateManager.ActivateSession(session);
 
             context.Output.WriteLine($"[green]Resumed session[/] [cyan]{session.TicketId}[/]");
             return CommandResult.Ok();
@@ -182,13 +185,13 @@ public sealed class SessionCommand : ICommand
 
     private static CommandResult HandleStatus(CommandContext context)
     {
-        if (context.CurrentSession is null)
+        if (!context.HasActiveSession)
         {
             context.Output.WriteLine("[dim]No active session. Use 'session start <name>' to begin.[/]");
             return CommandResult.Ok();
         }
 
-        var session = context.CurrentSession;
+        var session = context.CurrentSession!;
 
         var panel = new Panel(new Rows(
             new Markup($"[bold]Session:[/] [cyan]{session.TicketId}[/]"),

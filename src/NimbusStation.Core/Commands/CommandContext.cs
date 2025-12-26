@@ -9,28 +9,28 @@ namespace NimbusStation.Core.Commands;
 /// </summary>
 public sealed class CommandContext
 {
-    private readonly ISessionService _sessionService;
+    private readonly ISessionStateManager _sessionStateManager;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="CommandContext"/> class.
     /// </summary>
-    /// <param name="sessionService">The session service for reading current session state.</param>
+    /// <param name="sessionStateManager">The session state manager for reading current session state.</param>
     /// <param name="output">The output writer for command results.</param>
-    public CommandContext(ISessionService sessionService, IOutputWriter output)
+    public CommandContext(ISessionStateManager sessionStateManager, IOutputWriter output)
     {
-        _sessionService = sessionService ?? throw new ArgumentNullException(nameof(sessionService));
+        _sessionStateManager = sessionStateManager ?? throw new ArgumentNullException(nameof(sessionStateManager));
         Output = output ?? throw new ArgumentNullException(nameof(output));
     }
 
     /// <summary>
     /// Gets the currently active session, if any.
     /// </summary>
-    public Session.Session? CurrentSession => _sessionService.CurrentSession;
+    public Session.Session? CurrentSession => _sessionStateManager.CurrentSession;
 
     /// <summary>
     /// Gets a value indicating whether a session is currently active.
     /// </summary>
-    public bool HasActiveSession => CurrentSession is not null;
+    public bool HasActiveSession => _sessionStateManager.HasActiveSession;
 
     /// <summary>
     /// Gets the output writer for command results.

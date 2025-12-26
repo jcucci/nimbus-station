@@ -17,6 +17,7 @@ public sealed class ReplLoop
     private readonly CommandRegistry _commandRegistry;
     private readonly IAliasResolver _aliasResolver;
     private readonly ISessionService _sessionService;
+    private readonly ISessionStateManager _sessionStateManager;
     private readonly IConfigurationService _configurationService;
     private readonly IOutputWriter _outputWriter;
 
@@ -29,14 +30,16 @@ public sealed class ReplLoop
     /// </summary>
     /// <param name="commandRegistry">The registry that provides access to available commands.</param>
     /// <param name="aliasResolver">The resolver used to expand command aliases entered in the REPL.</param>
-    /// <param name="sessionService">The session service for managing session state.</param>
+    /// <param name="sessionService">The session service for persistence operations.</param>
+    /// <param name="sessionStateManager">The session state manager for active session tracking.</param>
     /// <param name="configurationService">The configuration service for loading resource aliases.</param>
     public ReplLoop(
         CommandRegistry commandRegistry,
         IAliasResolver aliasResolver,
         ISessionService sessionService,
+        ISessionStateManager sessionStateManager,
         IConfigurationService configurationService)
-        : this(commandRegistry, aliasResolver, sessionService, configurationService, new ConsoleOutputWriter())
+        : this(commandRegistry, aliasResolver, sessionService, sessionStateManager, configurationService, new ConsoleOutputWriter())
     {
     }
 
@@ -45,19 +48,22 @@ public sealed class ReplLoop
     /// </summary>
     /// <param name="commandRegistry">The registry that provides access to available commands.</param>
     /// <param name="aliasResolver">The resolver used to expand command aliases entered in the REPL.</param>
-    /// <param name="sessionService">The session service for managing session state.</param>
+    /// <param name="sessionService">The session service for persistence operations.</param>
+    /// <param name="sessionStateManager">The session state manager for active session tracking.</param>
     /// <param name="configurationService">The configuration service for loading resource aliases.</param>
     /// <param name="outputWriter">The output writer for command output.</param>
     public ReplLoop(
         CommandRegistry commandRegistry,
         IAliasResolver aliasResolver,
         ISessionService sessionService,
+        ISessionStateManager sessionStateManager,
         IConfigurationService configurationService,
         IOutputWriter outputWriter)
     {
         _commandRegistry = commandRegistry;
         _aliasResolver = aliasResolver;
         _sessionService = sessionService;
+        _sessionStateManager = sessionStateManager;
         _configurationService = configurationService;
         _outputWriter = outputWriter;
     }
@@ -75,7 +81,7 @@ public sealed class ReplLoop
         ReadLine.AutoCompletionHandler = new CommandAutoCompleteHandler(_commandRegistry);
 
         // Load history for any active session at startup
-        if (_sessionService.CurrentSession is { } initialSession)
+        if (_sessionStateManager.CurrentSession is { } initialSession)
         {
             LoadHistoryForSession(initialSession.TicketId);
             _lastSessionId = initialSession.TicketId;
@@ -103,7 +109,7 @@ public sealed class ReplLoop
             ReadLine.AddHistory(input);
 
             // Expand any command aliases before processing
-            var aliasResult = await _aliasResolver.ExpandAsync(input, _sessionService.CurrentSession, cancellationToken);
+            var aliasResult = await _aliasResolver.ExpandAsync(input, _sessionStateManager.CurrentSession, cancellationToken);
 
             if (!aliasResult.IsSuccess)
             {
@@ -146,7 +152,7 @@ public sealed class ReplLoop
             try
             {
                 var args = InputParser.GetArguments(tokens);
-                var context = new CommandContext(_sessionService, _outputWriter);
+                var context = new CommandContext(_sessionStateManager, _outputWriter);
                 var result = await command.ExecuteAsync(args, context, cancellationToken);
 
                 if (!result.Success && result.Message is not null)
@@ -171,7 +177,7 @@ public sealed class ReplLoop
 
     private string GetPrompt()
     {
-        if (_sessionService.CurrentSession is not { } session)
+        if (_sessionStateManager.CurrentSession is not { } session)
             return "[green]ns[/]\u203a ";
 
         var prompt = $"[green]ns[/][[[cyan]{Markup.Escape(session.TicketId)}[/]]]";
@@ -198,7 +204,7 @@ public sealed class ReplLoop
 
     private void HandleSessionChange()
     {
-        var currentSessionId = _sessionService.CurrentSession?.TicketId;
+        var currentSessionId = _sessionStateManager.CurrentSession?.TicketId;
 
         // If session changed, save history to old session and load from new session
         if (currentSessionId != _lastSessionId)
@@ -215,7 +221,7 @@ public sealed class ReplLoop
 
     private void SaveHistory()
     {
-        if (_sessionService.CurrentSession is { } session)
+        if (_sessionStateManager.CurrentSession is { } session)
             SaveHistoryForSession(session.TicketId);
     }
 

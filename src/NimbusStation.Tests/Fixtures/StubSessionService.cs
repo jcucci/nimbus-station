@@ -7,30 +7,22 @@ namespace NimbusStation.Tests.Fixtures;
 /// </summary>
 public sealed class StubSessionService : ISessionService
 {
-    public Session? CurrentSession { get; set; }
-
     public Task<Session> StartSessionAsync(string sessionName, CancellationToken cancellationToken = default)
-        => Task.FromResult(CurrentSession ?? Session.Create(sessionName));
+        => Task.FromResult(Session.Create(sessionName));
 
     public Task<IReadOnlyList<Session>> ListSessionsAsync(CancellationToken cancellationToken = default)
-        => Task.FromResult<IReadOnlyList<Session>>(CurrentSession is not null ? [CurrentSession] : []);
+        => Task.FromResult<IReadOnlyList<Session>>([]);
 
     public Task<Session> ResumeSessionAsync(string sessionName, CancellationToken cancellationToken = default)
-        => Task.FromResult(CurrentSession ?? throw new SessionNotFoundException(sessionName));
+        => Task.FromResult(Session.Create(sessionName));
 
     public Task DeleteSessionAsync(string sessionName, CancellationToken cancellationToken = default)
         => Task.CompletedTask;
 
     public Task<Session> UpdateSessionContextAsync(string sessionName, SessionContext context, CancellationToken cancellationToken = default)
-    {
-        if (CurrentSession is null)
-            throw new SessionNotFoundException(sessionName);
+        => Task.FromResult(Session.Create(sessionName).WithContext(context));
 
-        CurrentSession = CurrentSession.WithContext(context);
-        return Task.FromResult(CurrentSession);
-    }
-
-    public bool SessionExists(string sessionName) => CurrentSession?.TicketId == sessionName;
+    public bool SessionExists(string sessionName) => true;
 
     public string GetSessionDirectory(string sessionName) => $"/tmp/nimbus/{sessionName}";
 
