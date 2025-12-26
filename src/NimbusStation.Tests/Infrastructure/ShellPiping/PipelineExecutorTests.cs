@@ -7,8 +7,8 @@ using NimbusStation.Infrastructure.ShellPiping;
 namespace NimbusStation.Tests.Infrastructure.ShellPiping;
 
 /// <summary>
-/// Tests for PipelineExecutor covering single-pipe scenarios.
-/// Uses real ExternalProcessExecutor for integration testing.
+/// Tests for PipelineExecutor covering single-pipe and multi-pipe scenarios.
+/// Uses real ExternalProcessExecutor and ShellDelegator for integration testing.
 /// </summary>
 public class PipelineExecutorTests
 {
@@ -16,7 +16,9 @@ public class PipelineExecutorTests
 
     public PipelineExecutorTests()
     {
-        _executor = new PipelineExecutor(new ExternalProcessExecutor());
+        var processExecutor = new ExternalProcessExecutor();
+        var shellDelegator = new ShellDelegator(processExecutor);
+        _executor = new PipelineExecutor(processExecutor, shellDelegator);
     }
 
     [Fact]
@@ -129,20 +131,59 @@ public class PipelineExecutorTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_MultiplePipes_ReturnsUnsupportedError()
+    public async Task ExecuteAsync_MultiplePipes_DelegatesToShell()
     {
-        var pipeline = PipelineParser.Parse("internal | jq . | head -5");
+        var pipeline = PipelineParser.Parse("internal | cat | head -2");
 
         var result = await _executor.ExecuteAsync(
             pipeline,
             (cmd, writer, ct) =>
             {
-                writer.WriteLine("output");
+                writer.WriteLine("line1");
+                writer.WriteLine("line2");
+                writer.WriteLine("line3");
                 return Task.FromResult(CommandResult.Ok());
             });
 
-        Assert.False(result.Success);
-        Assert.Contains("Multiple external pipes not yet supported", result.Error);
+        Assert.True(result.Success);
+        Assert.Equal("line1\nline2\n", result.Output);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_MultiplePipes_ThreeCommands_PipesCorrectly()
+    {
+        var pipeline = PipelineParser.Parse("internal | cat | grep hello | head -1");
+
+        var result = await _executor.ExecuteAsync(
+            pipeline,
+            (cmd, writer, ct) =>
+            {
+                writer.WriteLine("hello world");
+                writer.WriteLine("goodbye");
+                writer.WriteLine("hello again");
+                return Task.FromResult(CommandResult.Ok());
+            });
+
+        Assert.True(result.Success);
+        Assert.Equal("hello world\n", result.Output);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_MultiplePipes_JqAndGrep_TransformsJson()
+    {
+        var pipeline = PipelineParser.Parse("internal | jq -r .name | grep test");
+
+        var result = await _executor.ExecuteAsync(
+            pipeline,
+            (cmd, writer, ct) =>
+            {
+                writer.WriteLine("{\"name\": \"test\"}");
+                writer.WriteLine("{\"name\": \"other\"}");
+                return Task.FromResult(CommandResult.Ok());
+            });
+
+        Assert.True(result.Success);
+        Assert.Equal("test\n", result.Output);
     }
 
     [Fact]
