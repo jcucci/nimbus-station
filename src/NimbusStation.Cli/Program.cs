@@ -5,9 +5,11 @@ using NimbusStation.Cli.Commands;
 using NimbusStation.Cli.Repl;
 using NimbusStation.Core.Aliases;
 using NimbusStation.Core.Session;
+using NimbusStation.Core.ShellPiping;
 using NimbusStation.Infrastructure.Aliases;
 using NimbusStation.Infrastructure.Configuration;
 using NimbusStation.Infrastructure.Sessions;
+using NimbusStation.Infrastructure.ShellPiping;
 using Spectre.Console;
 
 namespace NimbusStation.Cli;
@@ -55,6 +57,10 @@ public static class Program
         // Alias services
         services.AddSingleton<IAliasService, AliasService>();
         services.AddSingleton<IAliasResolver, AliasResolver>();
+
+        // Shell piping services
+        services.AddSingleton<IExternalProcessExecutor, ExternalProcessExecutor>();
+        services.AddSingleton<IPipelineExecutor, PipelineExecutor>();
 
         // Commands
         services.AddSingleton<SessionCommand>();

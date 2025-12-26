@@ -3,7 +3,9 @@ using NimbusStation.Cli.Output;
 using NimbusStation.Core.Aliases;
 using NimbusStation.Core.Commands;
 using NimbusStation.Core.Output;
+using NimbusStation.Core.Parsing;
 using NimbusStation.Core.Session;
+using NimbusStation.Core.ShellPiping;
 using NimbusStation.Infrastructure.Configuration;
 using Spectre.Console;
 
@@ -20,6 +22,7 @@ public sealed class ReplLoop
     private readonly ISessionStateManager _sessionStateManager;
     private readonly IConfigurationService _configurationService;
     private readonly IOutputWriter _outputWriter;
+    private readonly IPipelineExecutor _pipelineExecutor;
 
     private string? _lastSessionId;
 
@@ -33,13 +36,15 @@ public sealed class ReplLoop
     /// <param name="sessionService">The session service for persistence operations.</param>
     /// <param name="sessionStateManager">The session state manager for active session tracking.</param>
     /// <param name="configurationService">The configuration service for loading resource aliases.</param>
+    /// <param name="pipelineExecutor">The executor for piped commands.</param>
     public ReplLoop(
         CommandRegistry commandRegistry,
         IAliasResolver aliasResolver,
         ISessionService sessionService,
         ISessionStateManager sessionStateManager,
-        IConfigurationService configurationService)
-        : this(commandRegistry, aliasResolver, sessionService, sessionStateManager, configurationService, new ConsoleOutputWriter())
+        IConfigurationService configurationService,
+        IPipelineExecutor pipelineExecutor)
+        : this(commandRegistry, aliasResolver, sessionService, sessionStateManager, configurationService, pipelineExecutor, new ConsoleOutputWriter())
     {
     }
 
@@ -51,6 +56,7 @@ public sealed class ReplLoop
     /// <param name="sessionService">The session service for persistence operations.</param>
     /// <param name="sessionStateManager">The session state manager for active session tracking.</param>
     /// <param name="configurationService">The configuration service for loading resource aliases.</param>
+    /// <param name="pipelineExecutor">The executor for piped commands.</param>
     /// <param name="outputWriter">The output writer for command output.</param>
     public ReplLoop(
         CommandRegistry commandRegistry,
@@ -58,6 +64,7 @@ public sealed class ReplLoop
         ISessionService sessionService,
         ISessionStateManager sessionStateManager,
         IConfigurationService configurationService,
+        IPipelineExecutor pipelineExecutor,
         IOutputWriter outputWriter)
     {
         _commandRegistry = commandRegistry;
@@ -65,6 +72,7 @@ public sealed class ReplLoop
         _sessionService = sessionService;
         _sessionStateManager = sessionStateManager;
         _configurationService = configurationService;
+        _pipelineExecutor = pipelineExecutor;
         _outputWriter = outputWriter;
     }
 
@@ -122,6 +130,13 @@ public sealed class ReplLoop
             if (aliasResult.WasExpanded)
                 AnsiConsole.MarkupLine($"[dim]>[/] {Markup.Escape(effectiveInput)}");
 
+            // Check for piped commands before normal command processing
+            if (PipelineParser.ContainsPipe(effectiveInput))
+            {
+                await ExecutePipelineAsync(effectiveInput, cancellationToken);
+                continue;
+            }
+
             var tokens = InputParser.Parse(effectiveInput);
             var commandName = InputParser.GetCommandName(tokens);
 
@@ -173,6 +188,81 @@ public sealed class ReplLoop
 #endif
             }
         }
+    }
+
+    private async Task ExecutePipelineAsync(string input, CancellationToken cancellationToken)
+    {
+        var pipeline = PipelineParser.Parse(input);
+
+        if (!pipeline.IsValid)
+        {
+            AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(pipeline.Error ?? "Invalid pipeline")}");
+            return;
+        }
+
+        try
+        {
+            var result = await _pipelineExecutor.ExecuteAsync(
+                pipeline,
+                ExecuteInternalCommandAsync,
+                cancellationToken);
+
+            if (!result.Success)
+            {
+                AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(result.Error ?? "Pipeline execution failed")}");
+                return;
+            }
+
+            // Display stdout
+            if (!string.IsNullOrEmpty(result.Output))
+                AnsiConsole.Write(result.Output);
+
+            // Display stderr in red
+            if (result.HasErrorOutput)
+                AnsiConsole.MarkupLine($"[red]{Markup.Escape(result.ErrorOutput!)}[/]");
+
+            // Show warning for non-zero exit code
+            if (result.HasNonZeroExitCode)
+                AnsiConsole.MarkupLine($"[yellow]Process exited with code {result.ExternalExitCode}[/]");
+
+            // Session may have changed during internal command - handle history persistence
+            HandleSessionChange();
+        }
+        catch (OperationCanceledException)
+        {
+            AnsiConsole.MarkupLine("[yellow]Pipeline cancelled.[/]");
+        }
+        catch (Exception ex)
+        {
+            AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(ex.Message)}");
+#if DEBUG
+            AnsiConsole.WriteException(ex);
+#endif
+        }
+    }
+
+    private async Task<CommandResult> ExecuteInternalCommandAsync(
+        string commandString,
+        IOutputWriter outputWriter,
+        CancellationToken cancellationToken)
+    {
+        var tokens = InputParser.Parse(commandString);
+        var commandName = InputParser.GetCommandName(tokens);
+
+        if (commandName is null)
+            return CommandResult.Error("Empty command");
+
+        if (IsExitCommand(commandName) || IsHelpCommand(commandName))
+            return CommandResult.Error($"Cannot pipe '{commandName}' command");
+
+        var command = _commandRegistry.GetCommand(commandName);
+        if (command is null)
+            return CommandResult.Error($"Unknown command: {commandName}");
+
+        var args = InputParser.GetArguments(tokens);
+        var context = new CommandContext(_sessionStateManager, outputWriter);
+
+        return await command.ExecuteAsync(args, context, cancellationToken);
     }
 
     private string GetPrompt()
