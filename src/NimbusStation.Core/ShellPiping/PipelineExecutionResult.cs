@@ -4,7 +4,7 @@ namespace NimbusStation.Core.ShellPiping;
 /// Represents the result of executing a pipeline (internal command piped to external process).
 /// </summary>
 /// <param name="Success">Whether the pipeline executed successfully.</param>
-/// <param name="Output">The standard output from the external process (or internal command if no external).</param>
+/// <param name="Output">The standard output from the external process.</param>
 /// <param name="ErrorOutput">The standard error from the external process.</param>
 /// <param name="ExternalExitCode">The exit code from the external process, if one was executed.</param>
 /// <param name="Error">Error message if the pipeline failed.</param>

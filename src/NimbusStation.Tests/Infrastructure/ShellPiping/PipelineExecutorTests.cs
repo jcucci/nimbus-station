@@ -175,7 +175,7 @@ public class PipelineExecutorTests
     [Fact]
     public async Task ExecuteAsync_NoPipe_ReturnsError()
     {
-        // Single segment (no external commands)
+        // Single segment with no pipe operator
         var pipeline = PipelineParser.Parse("internal");
 
         var result = await _executor.ExecuteAsync(
