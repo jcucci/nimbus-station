@@ -45,10 +45,9 @@ public static class PlatformHelper
     private static (string Shell, string Argument) GetWindowsShell()
     {
         // Prefer PowerShell Core (pwsh) if available, fall back to Windows PowerShell
-        // PowerShell Core is cross-platform and more modern
         var pwshPath = FindExecutableInPath("pwsh.exe") ?? FindExecutableInPath("pwsh");
         if (pwshPath is not null)
-            return ("pwsh", "-Command");
+            return (pwshPath, "-Command");
 
         // Fall back to Windows PowerShell (always available on modern Windows)
         return ("powershell", "-Command");

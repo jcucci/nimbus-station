@@ -11,8 +11,8 @@ namespace NimbusStation.Infrastructure.ShellPiping;
 /// constructing a pipeline command and executing it via the system shell.
 /// </para>
 /// <para>
-/// On Unix systems, uses <c>/bin/sh -c "cmd1 | cmd2 | cmd3"</c>.
-/// On Windows, uses <c>pwsh -Command "cmd1 | cmd2 | cmd3"</c>.
+/// On Unix systems, invokes <c>/bin/sh -c "cmd1 | cmd2 | cmd3"</c> with special characters escaped.
+/// On Windows, invokes <c>pwsh -Command "cmd1 | cmd2 | cmd3"</c> with double quotes escaped.
 /// </para>
 /// </remarks>
 public sealed class ShellDelegator : IShellDelegator
@@ -42,20 +42,12 @@ public sealed class ShellDelegator : IShellDelegator
 
         var pipelineCommand = ShellEscaper.BuildPipelineCommand(externalCommands);
         var (shell, shellArg) = PlatformHelper.GetDefaultShell();
-        var escapedCommand = EscapeForShellArgument(pipelineCommand);
+        var escapedCommand = ShellEscaper.EscapeForShellArgument(pipelineCommand);
 
         return await _processExecutor.ExecuteAsync(
             command: shell,
             arguments: $"{shellArg} {escapedCommand}",
             stdinContent: stdinContent,
             cancellationToken: cancellationToken);
-    }
-
-    private static string EscapeForShellArgument(string command)
-    {
-        if (PlatformHelper.IsWindows)
-            return $"\"{command.Replace("\"", "\\\"")}\"";
-
-        return $"\"{command.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("$", "\\$").Replace("`", "\\`")}\"";
     }
 }

@@ -95,7 +95,7 @@ public sealed class PipelineExecutor : IPipelineExecutor
             return PipelineExecutionResult.Cancelled(partialOutput: capturedOutput);
         }
 
-        return ToExecutionResult(externalResult, command);
+        return ToExecutionResult(externalResult, command, isMultiPipe: false);
     }
 
     private async Task<PipelineExecutionResult> ExecuteMultiPipeAsync(
@@ -118,15 +118,19 @@ public sealed class PipelineExecutor : IPipelineExecutor
             return PipelineExecutionResult.Cancelled(partialOutput: capturedOutput);
         }
 
-        return ToExecutionResult(result, commandStrings[0]);
+        var pipelineDescription = string.Join(" | ", commandStrings);
+        return ToExecutionResult(result, pipelineDescription, isMultiPipe: true);
     }
 
-    private static PipelineExecutionResult ToExecutionResult(ProcessResult result, string command)
+    private static PipelineExecutionResult ToExecutionResult(ProcessResult result, string commandDescription, bool isMultiPipe = false)
     {
         if (result.Error is not null)
         {
+            var hint = isMultiPipe
+                ? "Check that all commands in the pipeline are installed and in your PATH."
+                : $"Is '{commandDescription}' installed and in your PATH?";
             return PipelineExecutionResult.Failed(
-                $"Failed to execute '{command}': {result.Error}. Is '{command}' installed and in your PATH?");
+                $"Failed to execute '{commandDescription}': {result.Error}. {hint}");
         }
 
         if (result.WasKilled)
