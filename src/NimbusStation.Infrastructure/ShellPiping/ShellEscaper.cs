@@ -82,16 +82,34 @@ public static class ShellEscaper
     /// Special characters that could cause injection are escaped:
     /// </para>
     /// <list type="bullet">
-    /// <item><description>Unix: backslash, double-quote, dollar sign, backtick</description></item>
-    /// <item><description>Windows: double-quote only (PowerShell handles others in double quotes)</description></item>
+    /// <item><description>Unix: backslash, double-quote, dollar sign, backtick, newline, carriage return</description></item>
+    /// <item><description>Windows (PowerShell): backtick, double-quote, newline, carriage return, tab</description></item>
     /// </list>
     /// </remarks>
     public static string EscapeForShellArgument(string command)
     {
         if (PlatformHelper.IsWindows)
-            return $"\"{command.Replace("\"", "\\\"")}\"";
+        {
+            // PowerShell uses backtick as escape character
+            var escaped = command
+                .Replace("`", "``")
+                .Replace("\"", "`\"")
+                .Replace("\r", "`r")
+                .Replace("\n", "`n")
+                .Replace("\t", "`t");
+            return $"\"{escaped}\"";
+        }
 
-        return $"\"{command.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("$", "\\$").Replace("`", "\\`")}\"";
+        // Unix shell escaping - order is security-critical:
+        // Backslashes must be escaped first so that backslashes introduced by
+        // later replacements are not themselves re-escaped.
+        return $"\"{command
+            .Replace("\\", "\\\\")
+            .Replace("\"", "\\\"")
+            .Replace("$", "\\$")
+            .Replace("`", "\\`")
+            .Replace("\n", "\\n")
+            .Replace("\r", "\\r")}\"";
     }
 
     /// <summary>

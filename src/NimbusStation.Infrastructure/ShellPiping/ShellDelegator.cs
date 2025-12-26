@@ -38,7 +38,7 @@ public sealed class ShellDelegator : IShellDelegator
             return ProcessResult.StartupError("No commands provided for shell delegation");
 
         if (externalCommands.Count == 1)
-            return ProcessResult.StartupError("Shell delegation requires at least 2 commands. Use ExternalProcessExecutor for single commands.");
+            return ProcessResult.StartupError("Shell delegation requires at least 2 commands for piping.");
 
         var pipelineCommand = ShellEscaper.BuildPipelineCommand(externalCommands);
         var (shell, shellArg) = PlatformHelper.GetDefaultShell();

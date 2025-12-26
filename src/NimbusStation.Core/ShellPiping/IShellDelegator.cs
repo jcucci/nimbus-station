@@ -9,8 +9,9 @@ namespace NimbusStation.Core.ShellPiping;
 /// The shell handles inter-process piping, buffering, and coordination.
 /// </para>
 /// <para>
-/// On Unix systems, delegates to <c>/bin/sh -c "cmd1 | cmd2"</c>.
-/// On Windows, delegates to <c>pwsh -Command "cmd1 | cmd2"</c>.
+/// On Unix systems, delegates to <c>/bin/sh -c</c> with a safely escaped pipeline command.
+/// On Windows, delegates to <c>pwsh -Command</c> with equivalent escaping.
+/// Special characters are escaped to prevent command injection.
 /// </para>
 /// </remarks>
 public interface IShellDelegator
