@@ -7,7 +7,7 @@ namespace NimbusStation.Infrastructure.Output;
 /// Output writer implementation that writes to a stream.
 /// Used for piping command output to external processes via their stdin.
 /// </summary>
-public sealed class StreamOutputWriter : IOutputWriter, IDisposable
+public sealed class StreamOutputWriter : IOutputWriter, IDisposable, IAsyncDisposable
 {
     private readonly Stream _stream;
     private readonly StreamWriter _writer;
@@ -23,7 +23,8 @@ public sealed class StreamOutputWriter : IOutputWriter, IDisposable
     {
         _stream = stream ?? throw new ArgumentNullException(nameof(stream));
         _ownsStream = ownsStream;
-        _writer = new StreamWriter(_stream, Encoding.UTF8, leaveOpen: !ownsStream)
+        // Use UTF8 without BOM for clean piping to external processes
+        _writer = new StreamWriter(_stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false), leaveOpen: !ownsStream)
         {
             AutoFlush = false
         };
@@ -47,17 +48,25 @@ public sealed class StreamOutputWriter : IOutputWriter, IDisposable
     }
 
     /// <inheritdoc/>
-    public void WriteRenderable(object renderable)
+    public void WriteRenderable(object? renderable)
     {
         ThrowIfDisposed();
-        _writer.WriteLine(renderable?.ToString() ?? string.Empty);
+        if (renderable is not null)
+            _writer.WriteLine(renderable.ToString() ?? string.Empty);
+        // null renderables are treated as "no content" - do nothing
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// This method flushes any buffered text before writing raw bytes to ensure
+    /// correct output ordering. Since AutoFlush is disabled for performance,
+    /// this explicit flush guarantees text written via Write/WriteLine appears
+    /// before the raw bytes in the output stream.
+    /// </remarks>
     public void WriteRaw(ReadOnlySpan<byte> data)
     {
         ThrowIfDisposed();
-        _writer.Flush(); // Flush any buffered text first
+        _writer.Flush(); // Flush buffered text to preserve output ordering
         _stream.Write(data);
     }
 
@@ -81,6 +90,22 @@ public sealed class StreamOutputWriter : IOutputWriter, IDisposable
 
         if (_ownsStream)
             _stream.Dispose();
+
+        _disposed = true;
+    }
+
+    /// <summary>
+    /// Asynchronously disposes the writer and optionally the underlying stream.
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        if (_disposed)
+            return;
+
+        await _writer.DisposeAsync();
+
+        if (_ownsStream)
+            await _stream.DisposeAsync();
 
         _disposed = true;
     }

@@ -81,6 +81,8 @@ must stay in the `Providers.Azure` project.
 * **Alias naming:** Alias names must start with a letter and contain only
   letters, numbers, hyphens, and underscores. Leading numbers are not allowed
   to avoid confusion with numeric arguments.
+* **No #region directives:** Avoid using `#region`/`#endregion` in code and
+  test files. Use clear method naming and file organization instead.
 
 ## 6. Directory Structure
 

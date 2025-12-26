@@ -203,20 +203,20 @@ public sealed class SessionCommand : ICommand
         };
 
         context.Output.WriteRenderable(panel);
-        return CommandResult.Ok(session);
+        return CommandResult.Ok();
     }
 
-    private static string GetContextSummary(SessionContext? sessionContext)
+    private static string GetContextSummary(SessionContext? activeContext)
     {
-        if (sessionContext is null)
+        if (activeContext is null)
             return "[dim]none[/]";
 
         var parts = new List<string>();
-        if (sessionContext.ActiveCosmosAlias is not null)
-            parts.Add($"cosmos:{sessionContext.ActiveCosmosAlias}");
+        if (activeContext.ActiveCosmosAlias is not null)
+            parts.Add($"cosmos:{activeContext.ActiveCosmosAlias}");
 
-        if (sessionContext.ActiveBlobAlias is not null)
-            parts.Add($"blob:{sessionContext.ActiveBlobAlias}");
+        if (activeContext.ActiveBlobAlias is not null)
+            parts.Add($"blob:{activeContext.ActiveBlobAlias}");
 
         return parts.Count > 0 ? string.Join(", ", parts) : "[dim]none[/]";
     }

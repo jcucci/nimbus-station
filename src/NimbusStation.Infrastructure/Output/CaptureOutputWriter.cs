@@ -21,11 +21,13 @@ public sealed class CaptureOutputWriter : IOutputWriter
     public void Write(string text) => _builder.Append(MarkupStripper.Strip(text));
 
     /// <inheritdoc/>
-    public void WriteRenderable(object renderable)
+    public void WriteRenderable(object? renderable)
     {
         // For renderables, just write the ToString representation
         // Tables and panels won't render properly without a console
-        _builder.AppendLine(renderable?.ToString() ?? string.Empty);
+        // null renderables are treated as "no content" - do nothing
+        if (renderable is not null)
+            _builder.AppendLine(renderable.ToString() ?? string.Empty);
     }
 
     /// <inheritdoc/>

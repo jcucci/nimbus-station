@@ -27,15 +27,24 @@ public interface IOutputWriter
     /// Writes a renderable object to the output.
     /// This is used for rich content like tables, panels, and other complex formatting.
     /// For non-console writers, implementations may render to plain text or ignore.
+    /// When <paramref name="renderable"/> is <c>null</c>, implementations must not throw;
+    /// they should treat it as "no renderable content" (e.g., no output or an empty line).
     /// </summary>
-    /// <param name="renderable">The renderable object to write.</param>
-    void WriteRenderable(object renderable);
+    /// <param name="renderable">
+    /// The renderable object to write. May be <c>null</c> to indicate no renderable content.
+    /// </param>
+    void WriteRenderable(object? renderable);
 
     /// <summary>
-    /// Writes raw data to the output stream (for binary or unformatted data).
-    /// This bypasses any text formatting and writes directly to the underlying stream.
+    /// Writes raw data to the output, bypassing any markup or higher-level text formatting.
+    /// Stream-based writers write the bytes directly to the underlying stream.
+    /// Console-like writers that cannot emit arbitrary binary data may interpret the bytes
+    /// as UTF-8 encoded text and write the resulting characters without additional formatting.
     /// </summary>
-    /// <param name="data">The raw bytes to write.</param>
+    /// <param name="data">
+    /// The raw bytes to write. Callers must not rely on strict binary preservation when targeting
+    /// console-like writers, which may decode the data as UTF-8 text before output.
+    /// </param>
     void WriteRaw(ReadOnlySpan<byte> data);
 
     /// <summary>

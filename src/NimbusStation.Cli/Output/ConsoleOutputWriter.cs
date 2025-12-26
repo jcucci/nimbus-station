@@ -40,12 +40,13 @@ public sealed class ConsoleOutputWriter : IOutputWriter
     public void Write(string text) => _console.Markup(text);
 
     /// <inheritdoc/>
-    public void WriteRenderable(object renderable)
+    public void WriteRenderable(object? renderable)
     {
         if (renderable is IRenderable spectreRenderable)
             _console.Write(spectreRenderable);
-        else
-            _console.WriteLine(renderable?.ToString() ?? string.Empty);
+        else if (renderable is not null)
+            _console.WriteLine(renderable.ToString() ?? string.Empty);
+        // null renderables are treated as "no content" - do nothing
     }
 
     /// <inheritdoc/>

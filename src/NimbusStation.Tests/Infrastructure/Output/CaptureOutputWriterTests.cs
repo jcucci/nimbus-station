@@ -5,8 +5,6 @@ namespace NimbusStation.Tests.Infrastructure.Output;
 
 public sealed class CaptureOutputWriterTests
 {
-    #region Basic Output Tests
-
     [Fact]
     public void WriteLine_SimpleText_CapturesWithNewline()
     {
@@ -42,10 +40,6 @@ public sealed class CaptureOutputWriterTests
                       "Line 3" + Environment.NewLine;
         Assert.Equal(expected, writer.GetOutput());
     }
-
-    #endregion
-
-    #region Markup Stripping Tests
 
     [Fact]
     public void WriteLine_WithMarkup_StripsMarkup()
@@ -87,10 +81,6 @@ public sealed class CaptureOutputWriterTests
         Assert.Equal("Array[0] = 42" + Environment.NewLine, writer.GetOutput());
     }
 
-    #endregion
-
-    #region WriteRenderable Tests
-
     [Fact]
     public void WriteRenderable_WithObject_WritesToString()
     {
@@ -109,18 +99,14 @@ public sealed class CaptureOutputWriterTests
     }
 
     [Fact]
-    public void WriteRenderable_WithNull_WritesEmptyLine()
+    public void WriteRenderable_WithNull_WritesNothing()
     {
         var writer = new CaptureOutputWriter();
 
-        writer.WriteRenderable(null!);
+        writer.WriteRenderable(null);
 
-        Assert.Equal(Environment.NewLine, writer.GetOutput());
+        Assert.Equal(string.Empty, writer.GetOutput());
     }
-
-    #endregion
-
-    #region WriteRaw Tests
 
     [Fact]
     public void WriteRaw_WithBytes_CapturesAsUtf8()
@@ -144,10 +130,6 @@ public sealed class CaptureOutputWriterTests
         Assert.Equal("Hello World", writer.GetOutput());
     }
 
-    #endregion
-
-    #region GetOutputBytes Tests
-
     [Fact]
     public void GetOutputBytes_ReturnsUtf8Bytes()
     {
@@ -159,10 +141,6 @@ public sealed class CaptureOutputWriterTests
         var expected = Encoding.UTF8.GetBytes("Test" + Environment.NewLine);
         Assert.Equal(expected, bytes);
     }
-
-    #endregion
-
-    #region Clear Tests
 
     [Fact]
     public void Clear_AfterWriting_ClearsBuffer()
@@ -187,10 +165,6 @@ public sealed class CaptureOutputWriterTests
         Assert.Equal("New content" + Environment.NewLine, writer.GetOutput());
     }
 
-    #endregion
-
-    #region Properties Tests
-
     [Fact]
     public void SupportsFormatting_ReturnsFalse()
     {
@@ -210,10 +184,6 @@ public sealed class CaptureOutputWriterTests
         Assert.Null(exception);
     }
 
-    #endregion
-
-    #region Mixed Operations Tests
-
     [Fact]
     public void MixedOperations_CapturesInOrder()
     {
@@ -230,6 +200,4 @@ public sealed class CaptureOutputWriterTests
                       "Done" + Environment.NewLine;
         Assert.Equal(expected, writer.GetOutput());
     }
-
-    #endregion
 }
