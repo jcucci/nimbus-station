@@ -60,6 +60,7 @@ public static class Program
 
         // Shell piping services
         services.AddSingleton<IExternalProcessExecutor, ExternalProcessExecutor>();
+        services.AddSingleton<IShellDelegator, ShellDelegator>();
         services.AddSingleton<IPipelineExecutor, PipelineExecutor>();
 
         // Commands

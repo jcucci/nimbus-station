@@ -8,18 +8,25 @@ namespace NimbusStation.Infrastructure.ShellPiping;
 
 /// <summary>
 /// Executes pipelines by running internal commands and piping output to external processes.
-/// Currently supports single-pipe scenarios (internal | external).
+/// Supports single-pipe (direct process) and multi-pipe (shell delegation) scenarios.
 /// </summary>
 public sealed class PipelineExecutor : IPipelineExecutor
 {
     private readonly IExternalProcessExecutor _externalProcessExecutor;
+    private readonly IShellDelegator _shellDelegator;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PipelineExecutor"/> class.
     /// </summary>
-    /// <param name="externalProcessExecutor">The executor for external processes.</param>
-    public PipelineExecutor(IExternalProcessExecutor externalProcessExecutor) =>
+    /// <param name="externalProcessExecutor">The executor for single external processes.</param>
+    /// <param name="shellDelegator">The delegator for multi-pipe shell execution.</param>
+    public PipelineExecutor(
+        IExternalProcessExecutor externalProcessExecutor,
+        IShellDelegator shellDelegator)
+    {
         _externalProcessExecutor = externalProcessExecutor ?? throw new ArgumentNullException(nameof(externalProcessExecutor));
+        _shellDelegator = shellDelegator ?? throw new ArgumentNullException(nameof(shellDelegator));
+    }
 
     /// <inheritdoc/>
     public async Task<PipelineExecutionResult> ExecuteAsync(
@@ -30,22 +37,15 @@ public sealed class PipelineExecutor : IPipelineExecutor
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(internalCommandExecutor);
 
-        // Validate pipeline
         if (!pipeline.IsValid)
             return PipelineExecutionResult.Failed(pipeline.Error ?? "Invalid pipeline");
 
         if (!pipeline.HasExternalCommands)
             return PipelineExecutionResult.Failed("Pipeline has no external commands");
 
-        // MVP: Only support single external pipe
-        var externalCommands = pipeline.ExternalCommands.ToList();
-        if (externalCommands.Count > 1)
-            return PipelineExecutionResult.Failed("Multiple external pipes not yet supported. Use a single pipe (e.g., 'command | jq .')");
-
         var internalSegment = pipeline.InternalCommand!;
-        var externalSegment = externalCommands[0];
+        var externalCommands = pipeline.ExternalCommands.ToList();
 
-        // Execute internal command with capture
         var captureWriter = new CaptureOutputWriter();
         CommandResult internalResult;
 
@@ -64,15 +64,23 @@ public sealed class PipelineExecutor : IPipelineExecutor
                 internalResult.Message ?? "Internal command failed");
         }
 
-        // Get captured output to pipe to external process
         var capturedOutput = captureWriter.GetOutput();
 
-        // Parse external command
+        if (externalCommands.Count == 1)
+            return await ExecuteSinglePipeAsync(externalCommands[0], capturedOutput, cancellationToken);
+
+        return await ExecuteMultiPipeAsync(externalCommands, capturedOutput, cancellationToken);
+    }
+
+    private async Task<PipelineExecutionResult> ExecuteSinglePipeAsync(
+        PipelineSegment externalSegment,
+        string capturedOutput,
+        CancellationToken cancellationToken)
+    {
         var (command, arguments) = CommandParser.Parse(externalSegment.Content);
         if (string.IsNullOrEmpty(command))
             return PipelineExecutionResult.Failed("External command is empty");
 
-        // Execute external process
         ProcessResult externalResult;
         try
         {
@@ -87,25 +95,54 @@ public sealed class PipelineExecutor : IPipelineExecutor
             return PipelineExecutionResult.Cancelled(partialOutput: capturedOutput);
         }
 
-        // Handle startup errors (command not found, etc.)
-        if (externalResult.Error is not null)
+        return ToExecutionResult(externalResult, command, isMultiPipe: false);
+    }
+
+    private async Task<PipelineExecutionResult> ExecuteMultiPipeAsync(
+        List<PipelineSegment> externalCommands,
+        string capturedOutput,
+        CancellationToken cancellationToken)
+    {
+        var commandStrings = externalCommands.Select(s => s.Content).ToList();
+
+        ProcessResult result;
+        try
         {
-            return PipelineExecutionResult.Failed(
-                $"Failed to execute '{command}': {externalResult.Error}. Is '{command}' installed and in your PATH?");
+            result = await _shellDelegator.ExecuteAsync(
+                externalCommands: commandStrings,
+                stdinContent: capturedOutput,
+                cancellationToken: cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return PipelineExecutionResult.Cancelled(partialOutput: capturedOutput);
         }
 
-        // Handle killed process
-        if (externalResult.WasKilled)
+        var pipelineDescription = string.Join(" | ", commandStrings);
+        return ToExecutionResult(result, pipelineDescription, isMultiPipe: true);
+    }
+
+    private static PipelineExecutionResult ToExecutionResult(ProcessResult result, string commandDescription, bool isMultiPipe = false)
+    {
+        if (result.Error is not null)
+        {
+            var hint = isMultiPipe
+                ? "Check that all commands in the pipeline are installed and in your PATH."
+                : $"Is '{commandDescription}' installed and in your PATH?";
+            return PipelineExecutionResult.Failed(
+                $"Failed to execute '{commandDescription}': {result.Error}. {hint}");
+        }
+
+        if (result.WasKilled)
         {
             return PipelineExecutionResult.Cancelled(
-                partialOutput: externalResult.StandardOutput,
-                partialErrorOutput: externalResult.StandardError);
+                partialOutput: result.StandardOutput,
+                partialErrorOutput: result.StandardError);
         }
 
-        // Return result (success or non-zero exit)
         return PipelineExecutionResult.Succeeded(
-            output: externalResult.StandardOutput,
-            errorOutput: externalResult.StandardError,
-            exitCode: externalResult.ExitCode);
+            output: result.StandardOutput,
+            errorOutput: result.StandardError,
+            exitCode: result.ExitCode);
     }
 }
