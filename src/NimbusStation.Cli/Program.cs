@@ -10,6 +10,8 @@ using NimbusStation.Infrastructure.Aliases;
 using NimbusStation.Infrastructure.Configuration;
 using NimbusStation.Infrastructure.Sessions;
 using NimbusStation.Infrastructure.ShellPiping;
+using NimbusStation.Providers.Azure.Auth;
+using NimbusStation.Providers.Azure.Cli;
 using Spectre.Console;
 
 namespace NimbusStation.Cli;
@@ -63,8 +65,13 @@ public static class Program
         services.AddSingleton<IShellDelegator, ShellDelegator>();
         services.AddSingleton<IPipelineExecutor, PipelineExecutor>();
 
+        // Azure services
+        services.AddSingleton<IAzureCliExecutor, AzureCliExecutor>();
+        services.AddSingleton<IAzureAuthService, AzureAuthService>();
+
         // Commands
         services.AddSingleton<SessionCommand>();
+        services.AddSingleton<AuthCommand>();
         services.AddSingleton<AliasCommand>();
         services.AddSingleton<UseCommand>();
         services.AddSingleton<InfoCommand>();
@@ -75,6 +82,7 @@ public static class Program
             registry.Register(sp.GetRequiredService<AliasCommand>());
             registry.Register(sp.GetRequiredService<UseCommand>());
             registry.Register(sp.GetRequiredService<InfoCommand>());
+            registry.Register(sp.GetRequiredService<AuthCommand>());
             return registry;
         });
 
