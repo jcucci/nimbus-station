@@ -51,17 +51,25 @@ public sealed class AzureCliExecutor : IAzureCliExecutor
             using var process = new Process { StartInfo = psi };
             var stdout = new StringBuilder();
             var stderr = new StringBuilder();
+            var stdoutLock = new object();
+            var stderrLock = new object();
 
             process.OutputDataReceived += (_, e) =>
             {
                 if (e.Data is not null)
-                    stdout.AppendLine(e.Data);
+                {
+                    lock (stdoutLock)
+                        stdout.AppendLine(e.Data);
+                }
             };
 
             process.ErrorDataReceived += (_, e) =>
             {
                 if (e.Data is not null)
-                    stderr.AppendLine(e.Data);
+                {
+                    lock (stderrLock)
+                        stderr.AppendLine(e.Data);
+                }
             };
 
             process.Start();
@@ -155,68 +163,94 @@ public sealed class AzureCliExecutor : IAzureCliExecutor
         if (!await IsInstalledAsync())
             return null;
 
-        try
+        var result = await ExecuteVersionCommandAsync();
+        if (!result.Success)
+            return null;
+
+        var firstLine = result.StandardOutput.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+        if (firstLine is not null && firstLine.StartsWith("azure-cli"))
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName = _azCommand,
-                Arguments = "--version",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
-
-            using var process = Process.Start(psi);
-            if (process is null)
-                return null;
-
-            var output = await process.StandardOutput.ReadToEndAsync();
-            await process.WaitForExitAsync();
-
-            if (process.ExitCode != 0)
-                return null;
-
-            var firstLine = output.Split('\n', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
-            if (firstLine is not null && firstLine.StartsWith("azure-cli"))
-            {
-                _cachedVersion = firstLine.Trim();
-                return _cachedVersion;
-            }
-
-            _cachedVersion = output.Split('\n').FirstOrDefault()?.Trim();
+            _cachedVersion = firstLine.Trim();
             return _cachedVersion;
         }
-        catch
-        {
-            return null;
-        }
+
+        _cachedVersion = result.StandardOutput.Split('\n').FirstOrDefault()?.Trim();
+        return _cachedVersion;
     }
 
     private async Task<bool> CheckIsInstalledAsync()
     {
+        var result = await ExecuteVersionCommandAsync();
+        return result.Success;
+    }
+
+    /// <summary>
+    /// Executes 'az --version' with timeout and proper stream handling.
+    /// Used by both IsInstalledAsync and GetVersionAsync.
+    /// </summary>
+    private async Task<AzureCliResult> ExecuteVersionCommandAsync()
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = _azCommand,
+            Arguments = "--version",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+
         try
         {
-            var psi = new ProcessStartInfo
+            using var process = new Process { StartInfo = psi };
+            var stdout = new StringBuilder();
+            var stderr = new StringBuilder();
+            var stdoutLock = new object();
+            var stderrLock = new object();
+
+            process.OutputDataReceived += (_, e) =>
             {
-                FileName = _azCommand,
-                Arguments = "--version",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
+                if (e.Data is not null)
+                {
+                    lock (stdoutLock)
+                        stdout.AppendLine(e.Data);
+                }
             };
 
-            using var process = Process.Start(psi);
-            if (process is null)
-                return false;
+            process.ErrorDataReceived += (_, e) =>
+            {
+                if (e.Data is not null)
+                {
+                    lock (stderrLock)
+                        stderr.AppendLine(e.Data);
+                }
+            };
 
-            await process.WaitForExitAsync();
-            return process.ExitCode == 0;
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            try
+            {
+                await process.WaitForExitAsync(timeoutCts.Token);
+            }
+            catch (OperationCanceledException)
+            {
+                TryKillProcess(process);
+                return AzureCliResult.Failed("Version check timed out");
+            }
+
+            var stdoutStr = stdout.ToString().TrimEnd();
+            var stderrStr = stderr.ToString().TrimEnd();
+
+            return process.ExitCode == 0
+                ? AzureCliResult.Succeeded(stdoutStr, stderrStr, process.ExitCode)
+                : AzureCliResult.Failed($"Version check failed with exit code {process.ExitCode}", stderrStr, process.ExitCode);
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            return AzureCliResult.Failed($"Failed to check Azure CLI: {ex.Message}");
         }
     }
 

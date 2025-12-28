@@ -46,5 +46,5 @@ public sealed record AzureCliResult
     /// Creates a result indicating the CLI is not installed.
     /// </summary>
     public static AzureCliResult NotInstalled() =>
-        new() { Success = false, ErrorMessage = "Azure CLI not found. Install from https://docs.microsoft.com/cli/azure/install-azure-cli", ExitCode = -1 };
+        new() { Success = false, ErrorMessage = "Azure CLI not found. Install from https://aka.ms/installazurecli", ExitCode = -1 };
 }

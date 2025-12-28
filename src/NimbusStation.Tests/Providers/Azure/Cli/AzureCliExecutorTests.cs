@@ -56,13 +56,13 @@ public class AzureCliExecutorTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_WithTimeout_TimesOutLongRunningCommand()
+    public async Task ExecuteAsync_WithShortTimeout_CompletesWithoutHanging()
     {
-        // Using a command that might take a while - checking for very short timeout
-        var result = await _executor.ExecuteAsync("account list", timeoutMs: 1);
+        // This test verifies the timeout code path doesn't hang.
+        // With a very short timeout, the command may either timeout or complete quickly
+        // if results are cached. Either outcome is acceptable - we just ensure no hang.
+        var result = await _executor.ExecuteAsync("account list", timeoutMs: 100);
 
-        // Should either timeout or complete very fast if cached
-        // We just verify it doesn't hang
         Assert.NotNull(result);
     }
 

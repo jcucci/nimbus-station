@@ -190,7 +190,7 @@ public sealed class AuthCommandTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_LoginSubcommandCaseInsensitive_AttempsLogin()
+    public async Task ExecuteAsync_LoginSubcommandCaseInsensitive_AttemptsLogin()
     {
         _authService.IsInstalled = true;
         _authService.LoginResult = AzureAuthStatus.Authenticated(

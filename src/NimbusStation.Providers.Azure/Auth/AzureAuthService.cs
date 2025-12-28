@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Runtime.InteropServices;
 using NimbusStation.Providers.Azure.Cli;
 
 namespace NimbusStation.Providers.Azure.Auth;

@@ -85,6 +85,6 @@ public sealed record AzureAuthStatus
         {
             IsAuthenticated = false,
             IsCliInstalled = false,
-            ErrorMessage = "Azure CLI not found. Install from https://docs.microsoft.com/cli/azure/install-azure-cli"
+            ErrorMessage = "Azure CLI not found. Install from https://aka.ms/installazurecli"
         };
 }
