@@ -171,6 +171,32 @@ public sealed class CosmosCommandTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_QueryWithZeroMaxItems_UsesDefault()
+    {
+        SetupValidCosmosContext();
+        _cosmosService.SetupQueryResult(MockCosmosService.CreateEmptyResult());
+        var context = new CommandContext(_sessionStateManager, _outputWriter);
+
+        await _command.ExecuteAsync(["query", "SELECT * FROM c", "--max-items", "0"], context);
+
+        var call = Assert.Single(_cosmosService.QueryCalls);
+        Assert.Equal(100, call.MaxItems);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_QueryWithNegativeMaxItems_UsesDefault()
+    {
+        SetupValidCosmosContext();
+        _cosmosService.SetupQueryResult(MockCosmosService.CreateEmptyResult());
+        var context = new CommandContext(_sessionStateManager, _outputWriter);
+
+        await _command.ExecuteAsync(["query", "SELECT * FROM c", "--max-items", "-5"], context);
+
+        var call = Assert.Single(_cosmosService.QueryCalls);
+        Assert.Equal(100, call.MaxItems);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_QueryPassesSqlToService()
     {
         SetupValidCosmosContext();

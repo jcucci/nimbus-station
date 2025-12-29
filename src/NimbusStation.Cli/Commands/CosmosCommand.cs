@@ -141,9 +141,9 @@ public sealed class CosmosCommand : ICommand
         {
             if (args[i] == "--max-items" && i + 1 < args.Length)
             {
-                if (int.TryParse(args[i + 1], out var parsed))
+                if (int.TryParse(args[i + 1], out var parsed) && parsed > 0)
                     maxItems = parsed;
-                i++; // Skip the value
+                i++; // Skip the value (for loop will increment again)
             }
             else if (!args[i].StartsWith("--"))
             {

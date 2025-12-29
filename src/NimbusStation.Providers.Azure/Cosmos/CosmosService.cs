@@ -44,7 +44,6 @@ public sealed class CosmosService : ICosmosService, IDisposable
 
         var items = new List<JsonElement>();
         double totalRequestCharge = 0;
-        string? continuationToken = null;
         bool hasMoreResults = false;
 
         using var iterator = container.GetItemQueryIterator<JsonElement>(
@@ -66,15 +65,13 @@ public sealed class CosmosService : ICosmosService, IDisposable
                 items.Add(item);
             }
 
-            continuationToken = response.ContinuationToken;
             hasMoreResults = iterator.HasMoreResults;
         }
 
         return new CosmosQueryResult(
             Items: items,
             RequestCharge: totalRequestCharge,
-            HasMoreResults: hasMoreResults,
-            ContinuationToken: continuationToken);
+            HasMoreResults: hasMoreResults);
     }
 
     private CosmosClient GetOrCreateClient(CosmosAliasConfig aliasConfig)
