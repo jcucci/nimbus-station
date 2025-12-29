@@ -48,6 +48,20 @@ public sealed class StreamOutputWriter : IOutputWriter, IDisposable, IAsyncDispo
     }
 
     /// <inheritdoc/>
+    public void WriteError(string text)
+    {
+        ThrowIfDisposed();
+        Console.Error.Write(text);
+    }
+
+    /// <inheritdoc/>
+    public void WriteErrorLine(string text)
+    {
+        ThrowIfDisposed();
+        Console.Error.WriteLine(text);
+    }
+
+    /// <inheritdoc/>
     public void WriteRenderable(object? renderable)
     {
         ThrowIfDisposed();

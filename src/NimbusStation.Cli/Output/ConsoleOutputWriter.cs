@@ -40,6 +40,12 @@ public sealed class ConsoleOutputWriter : IOutputWriter
     public void Write(string text) => _console.Markup(text);
 
     /// <inheritdoc/>
+    public void WriteError(string text) => Console.Error.Write(text);
+
+    /// <inheritdoc/>
+    public void WriteErrorLine(string text) => Console.Error.WriteLine(text);
+
+    /// <inheritdoc/>
     public void WriteRenderable(object? renderable)
     {
         if (renderable is IRenderable spectreRenderable)
