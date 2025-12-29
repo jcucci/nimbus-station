@@ -12,6 +12,7 @@ using NimbusStation.Infrastructure.Sessions;
 using NimbusStation.Infrastructure.ShellPiping;
 using NimbusStation.Providers.Azure.Auth;
 using NimbusStation.Providers.Azure.Cli;
+using NimbusStation.Providers.Azure.Cosmos;
 using Spectre.Console;
 
 namespace NimbusStation.Cli;
@@ -68,6 +69,7 @@ public static class Program
         // Azure services
         services.AddSingleton<IAzureCliExecutor, AzureCliExecutor>();
         services.AddSingleton<IAzureAuthService, AzureAuthService>();
+        services.AddSingleton<ICosmosService, CosmosService>();
 
         // Commands
         services.AddSingleton<SessionCommand>();
@@ -75,6 +77,7 @@ public static class Program
         services.AddSingleton<AliasCommand>();
         services.AddSingleton<UseCommand>();
         services.AddSingleton<InfoCommand>();
+        services.AddSingleton<CosmosCommand>();
         services.AddSingleton<CommandRegistry>(sp =>
         {
             var registry = new CommandRegistry();
@@ -83,6 +86,7 @@ public static class Program
             registry.Register(sp.GetRequiredService<UseCommand>());
             registry.Register(sp.GetRequiredService<InfoCommand>());
             registry.Register(sp.GetRequiredService<AuthCommand>());
+            registry.Register(sp.GetRequiredService<CosmosCommand>());
             return registry;
         });
 

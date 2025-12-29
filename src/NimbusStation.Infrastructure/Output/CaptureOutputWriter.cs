@@ -10,6 +10,7 @@ namespace NimbusStation.Infrastructure.Output;
 public sealed class CaptureOutputWriter : IOutputWriter
 {
     private readonly StringBuilder _builder = new();
+    private readonly StringBuilder _errorBuilder = new();
 
     /// <inheritdoc/>
     public bool SupportsFormatting => false;
@@ -19,6 +20,12 @@ public sealed class CaptureOutputWriter : IOutputWriter
 
     /// <inheritdoc/>
     public void Write(string text) => _builder.Append(MarkupStripper.Strip(text));
+
+    /// <inheritdoc/>
+    public void WriteError(string text) => _errorBuilder.Append(text);
+
+    /// <inheritdoc/>
+    public void WriteErrorLine(string text) => _errorBuilder.AppendLine(text);
 
     /// <inheritdoc/>
     public void WriteRenderable(object? renderable)
@@ -46,6 +53,12 @@ public sealed class CaptureOutputWriter : IOutputWriter
     public string GetOutput() => _builder.ToString();
 
     /// <summary>
+    /// Gets the captured error output as a string.
+    /// </summary>
+    /// <returns>The captured error output.</returns>
+    public string GetErrorOutput() => _errorBuilder.ToString();
+
+    /// <summary>
     /// Gets the captured output as a byte array (UTF-8 encoded).
     /// </summary>
     /// <returns>The captured output as bytes.</returns>
@@ -54,5 +67,9 @@ public sealed class CaptureOutputWriter : IOutputWriter
     /// <summary>
     /// Clears the captured output buffer.
     /// </summary>
-    public void Clear() => _builder.Clear();
+    public void Clear()
+    {
+        _builder.Clear();
+        _errorBuilder.Clear();
+    }
 }

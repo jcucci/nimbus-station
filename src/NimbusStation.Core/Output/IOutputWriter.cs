@@ -48,6 +48,18 @@ public interface IOutputWriter
     void WriteRaw(ReadOnlySpan<byte> data);
 
     /// <summary>
+    /// Writes text to the error output stream without a trailing newline.
+    /// </summary>
+    /// <param name="text">The text to write.</param>
+    void WriteError(string text);
+
+    /// <summary>
+    /// Writes text followed by a newline to the error output stream.
+    /// </summary>
+    /// <param name="text">The text to write.</param>
+    void WriteErrorLine(string text);
+
+    /// <summary>
     /// Flushes any buffered output to the underlying destination.
     /// </summary>
     void Flush();
