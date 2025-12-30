@@ -24,9 +24,13 @@ public sealed class ConfigurationService : IConfigurationService
         # [aliases.cosmos]
         # my-alias = { endpoint = "https://example.documents.azure.com:443/", database = "MyDb", container = "MyContainer" }
 
-        # Blob storage aliases
+        # Blob storage aliases (container-level operations)
         # [aliases.blob]
         # my-storage = { account = "mystorageaccount", container = "mycontainer" }
+
+        # Storage account aliases (account-level operations like container listing)
+        # [aliases.storage]
+        # prod = { account = "prodstorageaccount" }
         """;
 
     private readonly ILogger<ConfigurationService> _logger;
@@ -78,6 +82,7 @@ public sealed class ConfigurationService : IConfigurationService
             ParseTheme(tomlTable, config);
             ParseCosmosAliases(tomlTable, config);
             ParseBlobAliases(tomlTable, config);
+            ParseStorageAliases(tomlTable, config);
         }
         catch (TomlException ex)
         {
@@ -110,6 +115,18 @@ public sealed class ConfigurationService : IConfigurationService
         }
 
         return _cachedConfiguration.BlobAliases.GetValueOrDefault(name);
+    }
+
+    /// <inheritdoc/>
+    public StorageAliasConfig? GetStorageAlias(string name)
+    {
+        if (_cachedConfiguration is null)
+        {
+            _logger.LogWarning("Configuration not loaded. Call LoadConfigurationAsync first.");
+            return null;
+        }
+
+        return _cachedConfiguration.StorageAliases.GetValueOrDefault(name);
     }
 
     /// <inheritdoc/>
@@ -234,6 +251,40 @@ public sealed class ConfigurationService : IConfigurationService
             }
 
             config.BlobAliases[aliasName] = new BlobAliasConfig(account!, container!);
+        }
+    }
+
+    private void ParseStorageAliases(TomlTable tomlTable, NimbusConfiguration config)
+    {
+        if (!tomlTable.TryGetValue("aliases", out var aliasesObj) || aliasesObj is not TomlTable aliasesTable)
+        {
+            return;
+        }
+
+        if (!aliasesTable.TryGetValue("storage", out var storageObj) || storageObj is not TomlTable storageTable)
+        {
+            return;
+        }
+
+        foreach (var (aliasName, aliasValue) in storageTable)
+        {
+            if (aliasValue is not TomlTable aliasTable)
+            {
+                _logger.LogWarning("Skipping Storage alias '{AliasName}': expected a table", aliasName);
+                continue;
+            }
+
+            var account = GetStringValue(aliasTable, "account");
+
+            if (string.IsNullOrEmpty(account))
+            {
+                _logger.LogWarning(
+                    "Skipping Storage alias '{AliasName}': missing required field 'account'",
+                    aliasName);
+                continue;
+            }
+
+            config.StorageAliases[aliasName] = new StorageAliasConfig(account);
         }
     }
 

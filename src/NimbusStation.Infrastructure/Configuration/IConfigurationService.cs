@@ -27,6 +27,13 @@ public interface IConfigurationService
     BlobAliasConfig? GetBlobAlias(string name);
 
     /// <summary>
+    /// Gets a Storage account alias configuration by name.
+    /// </summary>
+    /// <param name="name">The alias name.</param>
+    /// <returns>The alias configuration, or null if not found.</returns>
+    StorageAliasConfig? GetStorageAlias(string name);
+
+    /// <summary>
     /// Gets the current theme configuration.
     /// </summary>
     /// <returns>The theme configuration.</returns>

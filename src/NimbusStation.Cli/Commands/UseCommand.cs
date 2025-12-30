@@ -15,7 +15,7 @@ public sealed class UseCommand : ICommand
 
     private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
     {
-        "cosmos", "blob", "clear"
+        "cosmos", "blob", "storage", "clear"
     };
 
     /// <inheritdoc/>
@@ -25,7 +25,7 @@ public sealed class UseCommand : ICommand
     public string Description => "Set or clear the active resource context";
 
     /// <inheritdoc/>
-    public string Usage => "use [cosmos|blob <alias>] | [clear [cosmos|blob]]";
+    public string Usage => "use [cosmos|blob|storage <alias>] | [clear [cosmos|blob|storage]]";
 
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands;
@@ -62,8 +62,9 @@ public sealed class UseCommand : ICommand
         {
             "cosmos" => await HandleSetCosmosAsync(subArgs, context, cancellationToken),
             "blob" => await HandleSetBlobAsync(subArgs, context, cancellationToken),
+            "storage" => await HandleSetStorageAsync(subArgs, context, cancellationToken),
             "clear" => await HandleClearAsync(subArgs, context, cancellationToken),
-            _ => CommandResult.Error($"Unknown provider '{args[0]}'. Available: cosmos, blob")
+            _ => CommandResult.Error($"Unknown provider '{args[0]}'. Available: cosmos, blob, storage")
         };
     }
 
@@ -74,10 +75,12 @@ public sealed class UseCommand : ICommand
 
         var cosmosAlias = activeContext?.ActiveCosmosAlias ?? "(none)";
         var blobAlias = activeContext?.ActiveBlobAlias ?? "(none)";
+        var storageAlias = activeContext?.ActiveStorageAlias ?? "(none)";
 
         context.Output.WriteLine("[bold]Active contexts:[/]");
-        context.Output.WriteLine($"  [orange1]cosmos:[/] {cosmosAlias}");
-        context.Output.WriteLine($"  [magenta]blob:[/]   {blobAlias}");
+        context.Output.WriteLine($"  [orange1]cosmos:[/]  {cosmosAlias}");
+        context.Output.WriteLine($"  [magenta]blob:[/]    {blobAlias}");
+        context.Output.WriteLine($"  [blue]storage:[/] {storageAlias}");
 
         return CommandResult.Ok();
     }
@@ -134,6 +137,32 @@ public sealed class UseCommand : ICommand
         return CommandResult.Ok();
     }
 
+    private async Task<CommandResult> HandleSetStorageAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
+    {
+        if (args.Length == 0)
+            return CommandResult.Error("Usage: use storage <alias>");
+
+        var aliasName = args[0];
+        var aliasConfig = _configurationService.GetStorageAlias(aliasName);
+
+        if (aliasConfig is null)
+            return CommandResult.Error($"Storage alias '{aliasName}' not found in config.");
+
+        // Update in-memory state
+        _sessionStateManager.SetStorageAlias(aliasName);
+
+        // Persist to disk
+        await _sessionService.UpdateSessionContextAsync(
+            context.CurrentSession!.TicketId,
+            context.CurrentSession.ActiveContext!,
+            cancellationToken);
+
+        context.Output.WriteLine($"[green]Context set:[/] [blue]storage/{aliasName}[/]");
+        context.Output.WriteLine($"[dim]Account: {aliasConfig.Account}[/]");
+
+        return CommandResult.Ok();
+    }
+
     private async Task<CommandResult> HandleClearAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
     {
         string message;
@@ -158,8 +187,12 @@ public sealed class UseCommand : ICommand
                     _sessionStateManager.ClearBlobAlias();
                     message = "Cleared blob context.";
                     break;
+                case "storage":
+                    _sessionStateManager.ClearStorageAlias();
+                    message = "Cleared storage context.";
+                    break;
                 default:
-                    return CommandResult.Error($"Unknown provider '{args[0]}'. Available: cosmos, blob");
+                    return CommandResult.Error($"Unknown provider '{args[0]}'. Available: cosmos, blob, storage");
             }
         }
 

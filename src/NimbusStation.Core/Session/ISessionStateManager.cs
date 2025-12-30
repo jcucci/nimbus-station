@@ -54,7 +54,20 @@ public interface ISessionStateManager
     void ClearBlobAlias();
 
     /// <summary>
-    /// Clears all aliases (Cosmos and Blob) for the current session.
+    /// Sets the active Storage account alias for the current session.
+    /// </summary>
+    /// <param name="aliasName">The alias name to set.</param>
+    /// <exception cref="InvalidOperationException">Thrown when no session is active.</exception>
+    void SetStorageAlias(string aliasName);
+
+    /// <summary>
+    /// Clears the active Storage account alias for the current session.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when no session is active.</exception>
+    void ClearStorageAlias();
+
+    /// <summary>
+    /// Clears all aliases (Cosmos, Blob, and Storage) for the current session.
     /// </summary>
     /// <exception cref="InvalidOperationException">Thrown when no session is active.</exception>
     void ClearAllAliases();

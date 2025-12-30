@@ -24,4 +24,9 @@ public sealed class NimbusConfiguration
     /// Gets or sets the Blob storage connection aliases.
     /// </summary>
     public Dictionary<string, BlobAliasConfig> BlobAliases { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the Storage account aliases (for account-level operations like container listing).
+    /// </summary>
+    public Dictionary<string, StorageAliasConfig> StorageAliases { get; set; } = [];
 }

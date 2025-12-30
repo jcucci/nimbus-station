@@ -65,6 +65,25 @@ public sealed class SessionStateManager : ISessionStateManager
     }
 
     /// <inheritdoc/>
+    public void SetStorageAlias(string aliasName)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(aliasName);
+        var session = GetActiveSessionOrThrow();
+        var currentContext = session.ActiveContext ?? SessionContext.Empty;
+        var newContext = currentContext with { ActiveStorageAlias = aliasName };
+        _currentSession = session.WithContext(newContext);
+    }
+
+    /// <inheritdoc/>
+    public void ClearStorageAlias()
+    {
+        var session = GetActiveSessionOrThrow();
+        var currentContext = session.ActiveContext ?? SessionContext.Empty;
+        var newContext = currentContext with { ActiveStorageAlias = null };
+        _currentSession = session.WithContext(newContext);
+    }
+
+    /// <inheritdoc/>
     public void ClearAllAliases()
     {
         var session = GetActiveSessionOrThrow();
