@@ -78,9 +78,9 @@ public sealed class UseCommand : ICommand
         var storageAlias = activeContext?.ActiveStorageAlias ?? "(none)";
 
         context.Output.WriteLine("[bold]Active contexts:[/]");
-        context.Output.WriteLine($"  [orange1]cosmos:[/]  {cosmosAlias}");
-        context.Output.WriteLine($"  [magenta]blob:[/]    {blobAlias}");
-        context.Output.WriteLine($"  [blue]storage:[/] {storageAlias}");
+        context.Output.WriteLine($"  [orange1]cosmos:[/]   {cosmosAlias}");
+        context.Output.WriteLine($"  [magenta]blob:[/]     {blobAlias}");
+        context.Output.WriteLine($"  [blue]storage:[/]  {storageAlias}");
 
         return CommandResult.Ok();
     }
