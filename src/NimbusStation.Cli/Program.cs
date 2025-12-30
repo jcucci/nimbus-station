@@ -2,6 +2,7 @@ using System.Reflection;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NimbusStation.Cli.Commands;
+using NimbusStation.Cli.Output;
 using NimbusStation.Cli.Repl;
 using NimbusStation.Core.Aliases;
 using NimbusStation.Core.Session;
@@ -31,9 +32,13 @@ public static class Program
             return;
         }
 
-        PrintBanner();
-
         var services = ConfigureServices();
+
+        // Load configuration and print themed banner
+        var configService = services.GetRequiredService<IConfigurationService>();
+        await configService.LoadConfigurationAsync();
+        BannerPrinter.Print(configService.GetTheme(), GetVersion());
+
         var repl = services.GetRequiredService<ReplLoop>();
 
         using var cts = new CancellationTokenSource();
@@ -79,6 +84,7 @@ public static class Program
         services.AddSingleton<AliasCommand>();
         services.AddSingleton<UseCommand>();
         services.AddSingleton<InfoCommand>();
+        services.AddSingleton<ThemeCommand>();
         services.AddSingleton<CosmosCommand>();
         services.AddSingleton<BlobCommand>();
         services.AddSingleton<CommandRegistry>(sp =>
@@ -88,6 +94,7 @@ public static class Program
             registry.Register(sp.GetRequiredService<AliasCommand>());
             registry.Register(sp.GetRequiredService<UseCommand>());
             registry.Register(sp.GetRequiredService<InfoCommand>());
+            registry.Register(sp.GetRequiredService<ThemeCommand>());
             registry.Register(sp.GetRequiredService<AuthCommand>());
             registry.Register(sp.GetRequiredService<CosmosCommand>());
             registry.Register(sp.GetRequiredService<BlobCommand>());
@@ -98,17 +105,6 @@ public static class Program
         services.AddSingleton<ReplLoop>();
 
         return services.BuildServiceProvider();
-    }
-
-    private static void PrintBanner()
-    {
-        AnsiConsole.Write(
-            new FigletText("Nimbus Station")
-                .LeftJustified()
-                .Color(Color.Cyan1));
-
-        AnsiConsole.MarkupLine($"[grey]Cloud-agnostic investigation workbench[/] [dim]v{GetVersion()}[/]");
-        AnsiConsole.WriteLine();
     }
 
     private static void PrintVersion() =>

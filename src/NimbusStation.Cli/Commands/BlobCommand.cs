@@ -89,8 +89,9 @@ public sealed class BlobCommand : ICommand
                     container.LastModified.ToString("yyyy-MM-dd HH:mm"));
             }
 
+            var theme = _configurationService.GetTheme();
             AnsiConsole.Write(table);
-            context.Output.WriteErrorLine($"[dim]{result.Containers.Count} container(s) in {aliasConfig.Account}[/]");
+            context.Output.WriteErrorLine($"[{theme.DimColor}]{result.Containers.Count} container(s) in {aliasConfig.Account}[/]");
 
             return CommandResult.Ok(data: result);
         }
@@ -129,8 +130,9 @@ public sealed class BlobCommand : ICommand
                     blob.LastModified.ToString("yyyy-MM-dd HH:mm"));
             }
 
+            var theme = _configurationService.GetTheme();
             AnsiConsole.Write(table);
-            context.Output.WriteErrorLine($"[dim]{result.Blobs.Count} blob(s) in {aliasConfig.Container}[/]");
+            context.Output.WriteErrorLine($"[{theme.DimColor}]{result.Blobs.Count} blob(s) in {aliasConfig.Container}[/]");
 
             return CommandResult.Ok(data: result);
         }
@@ -160,10 +162,11 @@ public sealed class BlobCommand : ICommand
             var result = await _blobService.GetBlobContentAsync(activeAlias, blobName, cancellationToken);
 
             // Check for binary content and warn if not piped
+            var theme = _configurationService.GetTheme();
             if (result.IsBinary && !Console.IsOutputRedirected)
             {
-                context.Output.WriteErrorLine($"[yellow]Warning: This appears to be a binary file ({result.ContentType}).[/]");
-                context.Output.WriteErrorLine("[yellow]Use 'blob download' to save to a file, or pipe the output.[/]");
+                context.Output.WriteErrorLine($"[{theme.WarningColor}]Warning: This appears to be a binary file ({result.ContentType}).[/]");
+                context.Output.WriteErrorLine($"[{theme.WarningColor}]Use 'blob download' to save to a file, or pipe the output.[/]");
 
                 if (!AnsiConsole.Confirm("Continue anyway?", defaultValue: false))
                     return CommandResult.Ok();
@@ -198,8 +201,9 @@ public sealed class BlobCommand : ICommand
 
         try
         {
+            var theme = _configurationService.GetTheme();
             var downloadedPath = await _blobService.DownloadBlobAsync(activeAlias, blobName, downloadsDir, cancellationToken);
-            context.Output.WriteLine($"[green]Downloaded to:[/] {downloadedPath}");
+            context.Output.WriteLine($"[{theme.SuccessColor}]Downloaded to:[/] {downloadedPath}");
 
             return CommandResult.Ok(data: downloadedPath);
         }

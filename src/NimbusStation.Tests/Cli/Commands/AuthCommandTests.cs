@@ -10,6 +10,7 @@ public sealed class AuthCommandTests
 {
     private readonly StubSessionStateManager _sessionStateManager;
     private readonly MockAzureAuthService _authService;
+    private readonly StubConfigurationService _configurationService;
     private readonly AuthCommand _command;
     private readonly CaptureOutputWriter _outputWriter;
 
@@ -17,7 +18,8 @@ public sealed class AuthCommandTests
     {
         _sessionStateManager = new StubSessionStateManager();
         _authService = new MockAzureAuthService();
-        _command = new AuthCommand(_authService);
+        _configurationService = new StubConfigurationService();
+        _command = new AuthCommand(_authService, _configurationService);
         _outputWriter = new CaptureOutputWriter();
     }
 
