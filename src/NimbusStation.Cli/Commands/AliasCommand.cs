@@ -1,6 +1,7 @@
 using NimbusStation.Core.Aliases;
 using NimbusStation.Core.Commands;
 using NimbusStation.Infrastructure.Aliases;
+using NimbusStation.Infrastructure.Configuration;
 using Spectre.Console;
 
 namespace NimbusStation.Cli.Commands;
@@ -12,6 +13,7 @@ public sealed class AliasCommand : ICommand
 {
     private readonly IAliasService _aliasService;
     private readonly IAliasResolver _aliasResolver;
+    private readonly IConfigurationService _configurationService;
 
     private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -33,10 +35,14 @@ public sealed class AliasCommand : ICommand
     /// <summary>
     /// Initializes a new instance of the <see cref="AliasCommand"/> class.
     /// </summary>
-    public AliasCommand(IAliasService aliasService, IAliasResolver aliasResolver)
+    public AliasCommand(
+        IAliasService aliasService,
+        IAliasResolver aliasResolver,
+        IConfigurationService configurationService)
     {
         _aliasService = aliasService;
         _aliasResolver = aliasResolver;
+        _configurationService = configurationService;
     }
 
     /// <inheritdoc/>
@@ -63,10 +69,11 @@ public sealed class AliasCommand : ICommand
     {
         await _aliasService.LoadAliasesAsync(cancellationToken);
         var aliases = _aliasService.GetAllAliases();
+        var theme = _configurationService.GetTheme();
 
         if (aliases.Count == 0)
         {
-            context.Output.WriteLine("[dim]No aliases defined. Use 'alias add <name> \"<expansion>\"' to create one.[/]");
+            context.Output.WriteLine($"[{theme.DimColor}]No aliases defined. Use 'alias add <name> \"<expansion>\"' to create one.[/]");
             return CommandResult.Ok();
         }
 
@@ -77,12 +84,12 @@ public sealed class AliasCommand : ICommand
         foreach (var (name, expansion) in aliases.OrderBy(kvp => kvp.Key, StringComparer.OrdinalIgnoreCase))
         {
             table.AddRow(
-                $"[cyan]{Markup.Escape(name)}[/]",
-                $"[dim]{Markup.Escape(TruncateExpansion(expansion, maxLength: 60))}[/]");
+                $"[{theme.PromptSessionColor}]{Markup.Escape(name)}[/]",
+                $"[{theme.DimColor}]{Markup.Escape(TruncateExpansion(expansion, maxLength: 60))}[/]");
         }
 
         context.Output.WriteRenderable(table);
-        context.Output.WriteLine($"[dim]{aliases.Count} alias(es) defined[/]");
+        context.Output.WriteLine($"[{theme.DimColor}]{aliases.Count} alias(es) defined[/]");
 
         return CommandResult.Ok(aliases);
     }
@@ -93,28 +100,29 @@ public sealed class AliasCommand : ICommand
             return CommandResult.Error("Usage: alias show <name>");
 
         var name = args[0];
+        var theme = _configurationService.GetTheme();
         await _aliasService.LoadAliasesAsync(cancellationToken);
         var aliases = _aliasService.GetAllAliases();
 
         if (!aliases.TryGetValue(name, out var expansion))
             return CommandResult.Error($"Alias '{name}' not found.");
 
-        context.Output.WriteLine($"[cyan]{Markup.Escape(name)}[/] = [green]\"{Markup.Escape(expansion)}\"[/]");
+        context.Output.WriteLine($"[{theme.PromptSessionColor}]{Markup.Escape(name)}[/] = [{theme.SuccessColor}]\"{Markup.Escape(expansion)}\"[/]");
 
         // Show parameter info if the alias has placeholders
         var placeholders = System.Text.RegularExpressions.Regex.Matches(expansion, @"\{(\d+)\}");
         if (placeholders.Count > 0)
         {
             var maxIndex = placeholders.Select(m => int.Parse(m.Groups[1].Value)).Max();
-            var paramList = string.Join(", ", Enumerable.Range(0, maxIndex + 1).Select(i => $"{{[cyan]{i}[/]}}"));
-            context.Output.WriteLine($"[dim]Parameters: {paramList}[/]");
+            var paramList = string.Join(", ", Enumerable.Range(0, maxIndex + 1).Select(i => $"{{[{theme.PromptSessionColor}]{i}[/]}}"));
+            context.Output.WriteLine($"[{theme.DimColor}]Parameters: {paramList}[/]");
         }
 
         // Show built-in variables used
         var builtInVars = new[] { "{ticket}", "{session-dir}", "{today}", "{now}", "{user}" };
         var usedVars = builtInVars.Where(v => expansion.Contains(v, StringComparison.OrdinalIgnoreCase)).ToList();
         if (usedVars.Count > 0)
-            context.Output.WriteLine($"[dim]Variables: {string.Join(", ", usedVars)}[/]");
+            context.Output.WriteLine($"[{theme.DimColor}]Variables: {string.Join(", ", usedVars)}[/]");
 
         return CommandResult.Ok(expansion);
     }
@@ -126,6 +134,7 @@ public sealed class AliasCommand : ICommand
 
         var name = args[0];
         var expansion = string.Join(" ", args.Skip(1));
+        var theme = _configurationService.GetTheme();
 
         var validation = AliasNameValidator.Validate(name);
         if (!validation.IsValid)
@@ -134,7 +143,7 @@ public sealed class AliasCommand : ICommand
         try
         {
             await _aliasService.AddAliasAsync(name, expansion, cancellationToken);
-            context.Output.WriteLine($"[green]Added alias[/] [cyan]{Markup.Escape(name)}[/] = \"{Markup.Escape(expansion)}\"");
+            context.Output.WriteLine($"[{theme.SuccessColor}]Added alias[/] [{theme.PromptSessionColor}]{Markup.Escape(name)}[/] = \"{Markup.Escape(expansion)}\"");
             return CommandResult.Ok();
         }
         catch (ArgumentException ex)
@@ -149,12 +158,13 @@ public sealed class AliasCommand : ICommand
             return CommandResult.Error("Usage: alias remove <name>");
 
         var name = args[0];
+        var theme = _configurationService.GetTheme();
         var removed = await _aliasService.RemoveAliasAsync(name, cancellationToken);
 
         if (!removed)
             return CommandResult.Error($"Alias '{name}' not found.");
 
-        context.Output.WriteLine($"[red]Removed alias[/] [cyan]{Markup.Escape(name)}[/]");
+        context.Output.WriteLine($"[{theme.ErrorColor}]Removed alias[/] [{theme.PromptSessionColor}]{Markup.Escape(name)}[/]");
         return CommandResult.Ok();
     }
 
@@ -165,6 +175,7 @@ public sealed class AliasCommand : ICommand
 
         var aliasName = args[0];
         var aliasArgs = args.Skip(1).ToArray();
+        var theme = _configurationService.GetTheme();
 
         var result = await _aliasResolver.TestExpandAsync(
             aliasName: aliasName,
@@ -177,14 +188,14 @@ public sealed class AliasCommand : ICommand
 
         if (!result.WasExpanded)
         {
-            context.Output.WriteLine($"[yellow]'{Markup.Escape(aliasName)}' is not a defined alias[/]");
+            context.Output.WriteLine($"[{theme.WarningColor}]'{Markup.Escape(aliasName)}' is not a defined alias[/]");
             return CommandResult.Ok();
         }
 
-        context.Output.WriteLine("[dim]Input:[/]");
-        context.Output.WriteLine($"  [cyan]{Markup.Escape(aliasName)}[/] {Markup.Escape(string.Join(" ", aliasArgs))}");
-        context.Output.WriteLine("[dim]Expands to:[/]");
-        context.Output.WriteLine($"  [green]{Markup.Escape(result.ExpandedInput)}[/]");
+        context.Output.WriteLine($"[{theme.DimColor}]Input:[/]");
+        context.Output.WriteLine($"  [{theme.PromptSessionColor}]{Markup.Escape(aliasName)}[/] {Markup.Escape(string.Join(" ", aliasArgs))}");
+        context.Output.WriteLine($"[{theme.DimColor}]Expands to:[/]");
+        context.Output.WriteLine($"  [{theme.SuccessColor}]{Markup.Escape(result.ExpandedInput)}[/]");
 
         return CommandResult.Ok(result.ExpandedInput);
     }

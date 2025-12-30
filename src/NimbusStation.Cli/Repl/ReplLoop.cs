@@ -104,8 +104,9 @@ public sealed class ReplLoop
             // Handle Ctrl+C (ReadLine returns null)
             if (input is null)
             {
+                var theme = _configurationService.GetTheme();
                 AnsiConsole.WriteLine();
-                AnsiConsole.MarkupLine("[dim]Goodbye![/]");
+                AnsiConsole.MarkupLine($"[{theme.DimColor}]Goodbye![/]");
                 SaveHistory();
                 break;
             }
@@ -121,14 +122,18 @@ public sealed class ReplLoop
 
             if (!aliasResult.IsSuccess)
             {
-                AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(aliasResult.Error!)}");
+                var theme = _configurationService.GetTheme();
+                AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(aliasResult.Error!)}");
                 continue;
             }
 
             var effectiveInput = aliasResult.ExpandedInput;
 
             if (aliasResult.WasExpanded)
-                AnsiConsole.MarkupLine($"[dim]>[/] {Markup.Escape(effectiveInput)}");
+            {
+                var theme = _configurationService.GetTheme();
+                AnsiConsole.MarkupLine($"[{theme.DimColor}]>[/] {Markup.Escape(effectiveInput)}");
+            }
 
             // Check for piped commands before normal command processing
             if (PipelineParser.ContainsPipe(effectiveInput))
@@ -145,7 +150,8 @@ public sealed class ReplLoop
 
             if (IsExitCommand(commandName))
             {
-                AnsiConsole.MarkupLine("[dim]Goodbye![/]");
+                var theme = _configurationService.GetTheme();
+                AnsiConsole.MarkupLine($"[{theme.DimColor}]Goodbye![/]");
                 SaveHistory();
                 break;
             }
@@ -159,8 +165,9 @@ public sealed class ReplLoop
             var command = _commandRegistry.GetCommand(commandName);
             if (command is null)
             {
-                AnsiConsole.MarkupLine($"[red]Unknown command:[/] {Markup.Escape(commandName)}");
-                AnsiConsole.MarkupLine("[dim]Type 'help' for available commands.[/]");
+                var theme = _configurationService.GetTheme();
+                AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Unknown command:[/] {Markup.Escape(commandName)}");
+                AnsiConsole.MarkupLine($"[{theme.DimColor}]Type 'help' for available commands.[/]");
                 continue;
             }
 
@@ -171,18 +178,23 @@ public sealed class ReplLoop
                 var result = await command.ExecuteAsync(args, context, cancellationToken);
 
                 if (!result.Success && result.Message is not null)
-                    AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(result.Message)}");
+                {
+                    var theme = _configurationService.GetTheme();
+                    AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(result.Message)}");
+                }
 
                 // Session may have changed - handle history persistence
                 HandleSessionChange();
             }
             catch (OperationCanceledException)
             {
-                AnsiConsole.MarkupLine("[yellow]Command cancelled.[/]");
+                var theme = _configurationService.GetTheme();
+                AnsiConsole.MarkupLine($"[{theme.WarningColor}]Command cancelled.[/]");
             }
             catch (Exception ex)
             {
-                AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(ex.Message)}");
+                var theme = _configurationService.GetTheme();
+                AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(ex.Message)}");
 #if DEBUG
                 AnsiConsole.WriteException(ex);
 #endif
@@ -192,11 +204,12 @@ public sealed class ReplLoop
 
     private async Task ExecutePipelineAsync(string input, CancellationToken cancellationToken)
     {
+        var theme = _configurationService.GetTheme();
         var pipeline = PipelineParser.Parse(input);
 
         if (!pipeline.IsValid)
         {
-            AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(pipeline.Error ?? "Invalid pipeline")}");
+            AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(pipeline.Error ?? "Invalid pipeline")}");
             return;
         }
 
@@ -209,7 +222,7 @@ public sealed class ReplLoop
 
             if (!result.Success)
             {
-                AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(result.Error ?? "Pipeline execution failed")}");
+                AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(result.Error ?? "Pipeline execution failed")}");
                 return;
             }
 
@@ -217,24 +230,24 @@ public sealed class ReplLoop
             if (!string.IsNullOrEmpty(result.Output))
                 AnsiConsole.Write(result.Output);
 
-            // Display stderr in red
+            // Display stderr in error color
             if (result.HasErrorOutput)
-                AnsiConsole.MarkupLine($"[red]{Markup.Escape(result.ErrorOutput!)}[/]");
+                AnsiConsole.MarkupLine($"[{theme.ErrorColor}]{Markup.Escape(result.ErrorOutput!)}[/]");
 
             // Show warning for non-zero exit code
             if (result.HasNonZeroExitCode)
-                AnsiConsole.MarkupLine($"[yellow]Process exited with code {result.ExternalExitCode}[/]");
+                AnsiConsole.MarkupLine($"[{theme.WarningColor}]Process exited with code {result.ExternalExitCode}[/]");
 
             // Session may have changed during internal command - handle history persistence
             HandleSessionChange();
         }
         catch (OperationCanceledException)
         {
-            AnsiConsole.MarkupLine("[yellow]Pipeline cancelled.[/]");
+            AnsiConsole.MarkupLine($"[{theme.WarningColor}]Pipeline cancelled.[/]");
         }
         catch (Exception ex)
         {
-            AnsiConsole.MarkupLine($"[red]Error:[/] {Markup.Escape(ex.Message)}");
+            AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(ex.Message)}");
 #if DEBUG
             AnsiConsole.WriteException(ex);
 #endif
@@ -267,18 +280,31 @@ public sealed class ReplLoop
 
     private string GetPrompt()
     {
-        if (_sessionStateManager.CurrentSession is not { } session)
-            return "[green]ns[/]\u203a ";
+        var theme = _configurationService.GetTheme();
 
-        var prompt = $"[green]ns[/][[[cyan]{Markup.Escape(session.TicketId)}[/]]]";
+        if (_sessionStateManager.CurrentSession is not { } session)
+            return $"[{theme.PromptColor}]ns[/]\u203a ";
+
+        var prompt = $"[{theme.PromptColor}]ns[/]" +
+                     $"[{theme.PromptContextColor}][[[/]" +
+                     $"[{theme.PromptSessionColor}]{Markup.Escape(session.TicketId)}[/]" +
+                     $"[{theme.PromptContextColor}]]][/]";
 
         // Append active context aliases
         var sessionContext = session.ActiveContext;
         if (sessionContext?.ActiveCosmosAlias is { } cosmosAlias)
-            prompt += $"[[[orange1]{Markup.Escape(cosmosAlias)}[/]]]";
+        {
+            prompt += $"[{theme.PromptContextColor}][[[/]" +
+                      $"[{theme.PromptCosmosAliasColor}]{Markup.Escape(cosmosAlias)}[/]" +
+                      $"[{theme.PromptContextColor}]]][/]";
+        }
 
         if (sessionContext?.ActiveBlobAlias is { } blobAlias)
-            prompt += $"[[[magenta]{Markup.Escape(blobAlias)}[/]]]";
+        {
+            prompt += $"[{theme.PromptContextColor}][[[/]" +
+                      $"[{theme.PromptBlobAliasColor}]{Markup.Escape(blobAlias)}[/]" +
+                      $"[{theme.PromptContextColor}]]][/]";
+        }
 
         return prompt + "\u203a ";
     }
@@ -356,6 +382,7 @@ public sealed class ReplLoop
 
     private void ShowHelp(string[] tokens)
     {
+        var theme = _configurationService.GetTheme();
         var args = InputParser.GetArguments(tokens);
 
         if (args.Length > 0)
@@ -365,12 +392,12 @@ public sealed class ReplLoop
 
             if (command is null)
             {
-                AnsiConsole.MarkupLine($"[red]Unknown command:[/] {Markup.Escape(commandName)}");
+                AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Unknown command:[/] {Markup.Escape(commandName)}");
                 return;
             }
 
             AnsiConsole.MarkupLine($"[bold]{command.Name}[/] - {command.Description}");
-            AnsiConsole.MarkupLine($"[dim]Usage:[/] {command.Usage}");
+            AnsiConsole.MarkupLine($"[{theme.DimColor}]Usage:[/] {command.Usage}");
             return;
         }
 
@@ -385,13 +412,13 @@ public sealed class ReplLoop
         table.AddColumn("Description");
 
         foreach (var command in _commandRegistry.GetAllCommands().OrderBy(c => c.Name))
-            table.AddRow($"[cyan]{command.Name}[/]", command.Description);
+            table.AddRow($"[{theme.TableHeaderColor}]{command.Name}[/]", command.Description);
 
-        table.AddRow("[cyan]help[/]", "Show this help message");
-        table.AddRow("[cyan]exit[/]", "Exit the REPL");
+        table.AddRow($"[{theme.TableHeaderColor}]help[/]", "Show this help message");
+        table.AddRow($"[{theme.TableHeaderColor}]exit[/]", "Exit the REPL");
 
         AnsiConsole.Write(table);
         AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine("[dim]Type 'help <command>' for more information about a specific command.[/]");
+        AnsiConsole.MarkupLine($"[{theme.DimColor}]Type 'help <command>' for more information about a specific command.[/]");
     }
 }

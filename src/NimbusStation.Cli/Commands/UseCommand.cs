@@ -68,19 +68,20 @@ public sealed class UseCommand : ICommand
         };
     }
 
-    private static CommandResult HandleShowContext(CommandContext context)
+    private CommandResult HandleShowContext(CommandContext context)
     {
         var session = context.CurrentSession!;
         var activeContext = session.ActiveContext;
+        var theme = _configurationService.GetTheme();
 
         var cosmosAlias = activeContext?.ActiveCosmosAlias ?? "(none)";
         var blobAlias = activeContext?.ActiveBlobAlias ?? "(none)";
         var storageAlias = activeContext?.ActiveStorageAlias ?? "(none)";
 
         context.Output.WriteLine("[bold]Active contexts:[/]");
-        context.Output.WriteLine($"  [orange1]cosmos:[/]   {cosmosAlias}");
-        context.Output.WriteLine($"  [magenta]blob:[/]     {blobAlias}");
-        context.Output.WriteLine($"  [blue]storage:[/]  {storageAlias}");
+        context.Output.WriteLine($"  [{theme.PromptCosmosAliasColor}]cosmos:[/]   {cosmosAlias}");
+        context.Output.WriteLine($"  [{theme.PromptBlobAliasColor}]blob:[/]     {blobAlias}");
+        context.Output.WriteLine($"  [{theme.TableHeaderColor}]storage:[/]  {storageAlias}");
 
         return CommandResult.Ok();
     }
@@ -91,6 +92,7 @@ public sealed class UseCommand : ICommand
             return CommandResult.Error("Usage: use cosmos <alias>");
 
         var aliasName = args[0];
+        var theme = _configurationService.GetTheme();
         var aliasConfig = _configurationService.GetCosmosAlias(aliasName);
 
         if (aliasConfig is null)
@@ -105,8 +107,8 @@ public sealed class UseCommand : ICommand
             context.CurrentSession.ActiveContext!,
             cancellationToken);
 
-        context.Output.WriteLine($"[green]Context set:[/] [orange1]cosmos/{aliasName}[/]");
-        context.Output.WriteLine($"[dim]Endpoint: {aliasConfig.Endpoint}[/]");
+        context.Output.WriteLine($"[{theme.SuccessColor}]Context set:[/] [{theme.PromptCosmosAliasColor}]cosmos/{aliasName}[/]");
+        context.Output.WriteLine($"[{theme.DimColor}]Endpoint: {aliasConfig.Endpoint}[/]");
 
         return CommandResult.Ok();
     }
@@ -117,6 +119,7 @@ public sealed class UseCommand : ICommand
             return CommandResult.Error("Usage: use blob <alias>");
 
         var aliasName = args[0];
+        var theme = _configurationService.GetTheme();
         var aliasConfig = _configurationService.GetBlobAlias(aliasName);
 
         if (aliasConfig is null)
@@ -131,8 +134,8 @@ public sealed class UseCommand : ICommand
             context.CurrentSession.ActiveContext!,
             cancellationToken);
 
-        context.Output.WriteLine($"[green]Context set:[/] [magenta]blob/{aliasName}[/]");
-        context.Output.WriteLine($"[dim]Account: {aliasConfig.Account}[/]");
+        context.Output.WriteLine($"[{theme.SuccessColor}]Context set:[/] [{theme.PromptBlobAliasColor}]blob/{aliasName}[/]");
+        context.Output.WriteLine($"[{theme.DimColor}]Account: {aliasConfig.Account}[/]");
 
         return CommandResult.Ok();
     }
@@ -143,6 +146,7 @@ public sealed class UseCommand : ICommand
             return CommandResult.Error("Usage: use storage <alias>");
 
         var aliasName = args[0];
+        var theme = _configurationService.GetTheme();
         var aliasConfig = _configurationService.GetStorageAlias(aliasName);
 
         if (aliasConfig is null)
@@ -157,8 +161,8 @@ public sealed class UseCommand : ICommand
             context.CurrentSession.ActiveContext!,
             cancellationToken);
 
-        context.Output.WriteLine($"[green]Context set:[/] [blue]storage/{aliasName}[/]");
-        context.Output.WriteLine($"[dim]Account: {aliasConfig.Account}[/]");
+        context.Output.WriteLine($"[{theme.SuccessColor}]Context set:[/] [{theme.TableHeaderColor}]storage/{aliasName}[/]");
+        context.Output.WriteLine($"[{theme.DimColor}]Account: {aliasConfig.Account}[/]");
 
         return CommandResult.Ok();
     }
@@ -202,7 +206,8 @@ public sealed class UseCommand : ICommand
             context.CurrentSession.ActiveContext ?? SessionContext.Empty,
             cancellationToken);
 
-        context.Output.WriteLine($"[yellow]{message}[/]");
+        var theme = _configurationService.GetTheme();
+        context.Output.WriteLine($"[{theme.WarningColor}]{message}[/]");
 
         return CommandResult.Ok();
     }

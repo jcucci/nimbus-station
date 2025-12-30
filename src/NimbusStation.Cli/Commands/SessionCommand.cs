@@ -1,5 +1,6 @@
 using NimbusStation.Core.Commands;
 using NimbusStation.Core.Session;
+using NimbusStation.Infrastructure.Configuration;
 using Spectre.Console;
 
 namespace NimbusStation.Cli.Commands;
@@ -11,6 +12,7 @@ public sealed class SessionCommand : ICommand
 {
     private readonly ISessionService _sessionService;
     private readonly ISessionStateManager _sessionStateManager;
+    private readonly IConfigurationService _configurationService;
 
     private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -34,10 +36,15 @@ public sealed class SessionCommand : ICommand
     /// </summary>
     /// <param name="sessionService">The session service for persistence operations.</param>
     /// <param name="sessionStateManager">The session state manager for active session tracking.</param>
-    public SessionCommand(ISessionService sessionService, ISessionStateManager sessionStateManager)
+    /// <param name="configurationService">The configuration service for theme settings.</param>
+    public SessionCommand(
+        ISessionService sessionService,
+        ISessionStateManager sessionStateManager,
+        IConfigurationService configurationService)
     {
         _sessionService = sessionService;
         _sessionStateManager = sessionStateManager;
+        _configurationService = configurationService;
     }
 
     /// <inheritdoc/>
@@ -67,6 +74,7 @@ public sealed class SessionCommand : ICommand
             return CommandResult.Error("Usage: session start <session-name>");
 
         var sessionName = args[0];
+        var theme = _configurationService.GetTheme();
 
         try
         {
@@ -76,8 +84,8 @@ public sealed class SessionCommand : ICommand
 
             var action = existed ? "Resumed" : "Started";
 
-            context.Output.WriteLine($"[green]{action} session[/] [cyan]{session.TicketId}[/]");
-            context.Output.WriteLine($"[dim]Session directory: {_sessionService.GetSessionDirectory(sessionName)}[/]");
+            context.Output.WriteLine($"[{theme.SuccessColor}]{action} session[/] [{theme.PromptSessionColor}]{session.TicketId}[/]");
+            context.Output.WriteLine($"[{theme.DimColor}]Session directory: {_sessionService.GetSessionDirectory(sessionName)}[/]");
 
             return CommandResult.Ok();
         }
@@ -90,10 +98,11 @@ public sealed class SessionCommand : ICommand
     private async Task<CommandResult> HandleListAsync(CommandContext context, CancellationToken cancellationToken)
     {
         var sessions = await _sessionService.ListSessionsAsync(cancellationToken);
+        var theme = _configurationService.GetTheme();
 
         if (sessions.Count == 0)
         {
-            context.Output.WriteLine("[dim]No sessions found. Use 'session start <name>' to create one.[/]");
+            context.Output.WriteLine($"[{theme.DimColor}]No sessions found. Use 'session start <name>' to create one.[/]");
             return CommandResult.Ok();
         }
 
@@ -105,9 +114,9 @@ public sealed class SessionCommand : ICommand
 
         foreach (var session in sessions)
         {
-            var contextInfo = GetContextSummary(session.ActiveContext);
+            var contextInfo = GetContextSummary(session.ActiveContext, theme);
             table.AddRow(
-                $"[cyan]{session.TicketId}[/]",
+                $"[{theme.PromptSessionColor}]{session.TicketId}[/]",
                 FormatTimestamp(session.CreatedAt),
                 FormatTimestamp(session.LastAccessedAt),
                 contextInfo);
@@ -122,10 +131,11 @@ public sealed class SessionCommand : ICommand
         if (!context.HasActiveSession)
             return CommandResult.Error("No active session to leave.");
 
+        var theme = _configurationService.GetTheme();
         var sessionName = context.CurrentSession!.TicketId;
         _sessionStateManager.DeactivateSession();
 
-        context.Output.WriteLine($"[yellow]Left session[/] [cyan]{sessionName}[/]");
+        context.Output.WriteLine($"[{theme.WarningColor}]Left session[/] [{theme.PromptSessionColor}]{sessionName}[/]");
         return CommandResult.Ok();
     }
 
@@ -135,13 +145,14 @@ public sealed class SessionCommand : ICommand
             return CommandResult.Error("Usage: session resume <session-name>");
 
         var sessionName = args[0];
+        var theme = _configurationService.GetTheme();
 
         try
         {
             var session = await _sessionService.ResumeSessionAsync(sessionName, cancellationToken);
             _sessionStateManager.ActivateSession(session);
 
-            context.Output.WriteLine($"[green]Resumed session[/] [cyan]{session.TicketId}[/]");
+            context.Output.WriteLine($"[{theme.SuccessColor}]Resumed session[/] [{theme.PromptSessionColor}]{session.TicketId}[/]");
             return CommandResult.Ok();
         }
         catch (SessionNotFoundException ex)
@@ -156,25 +167,26 @@ public sealed class SessionCommand : ICommand
             return CommandResult.Error("Usage: session delete <session-name>");
 
         var sessionName = args[0];
+        var theme = _configurationService.GetTheme();
 
         if (!_sessionService.SessionExists(sessionName))
             return CommandResult.Error($"Session '{sessionName}' not found.");
 
         // Confirmation prompt - this still uses AnsiConsole directly as it's interactive input
         var confirmed = AnsiConsole.Confirm(
-            $"[yellow]Delete session '[cyan]{sessionName}[/]' and all its data?[/]",
+            $"[{theme.WarningColor}]Delete session '[{theme.PromptSessionColor}]{sessionName}[/]' and all its data?[/]",
             defaultValue: false);
 
         if (!confirmed)
         {
-            context.Output.WriteLine("[dim]Deletion cancelled.[/]");
+            context.Output.WriteLine($"[{theme.DimColor}]Deletion cancelled.[/]");
             return CommandResult.Ok();
         }
 
         try
         {
             await _sessionService.DeleteSessionAsync(sessionName, cancellationToken);
-            context.Output.WriteLine($"[red]Deleted session[/] [cyan]{sessionName}[/]");
+            context.Output.WriteLine($"[{theme.ErrorColor}]Deleted session[/] [{theme.PromptSessionColor}]{sessionName}[/]");
             return CommandResult.Ok();
         }
         catch (SessionNotFoundException ex)
@@ -183,25 +195,29 @@ public sealed class SessionCommand : ICommand
         }
     }
 
-    private static CommandResult HandleStatus(CommandContext context)
+    private CommandResult HandleStatus(CommandContext context)
     {
+        var theme = _configurationService.GetTheme();
+
         if (!context.HasActiveSession)
         {
-            context.Output.WriteLine("[dim]No active session. Use 'session start <name>' to begin.[/]");
+            context.Output.WriteLine($"[{theme.DimColor}]No active session. Use 'session start <name>' to begin.[/]");
             return CommandResult.Ok();
         }
 
         var session = context.CurrentSession!;
+        var cosmosAlias = session.ActiveContext?.ActiveCosmosAlias ?? $"[{theme.DimColor}]none[/]";
+        var blobAlias = session.ActiveContext?.ActiveBlobAlias ?? $"[{theme.DimColor}]none[/]";
 
         var panel = new Panel(new Rows(
-            new Markup($"[bold]Session:[/] [cyan]{session.TicketId}[/]"),
+            new Markup($"[bold]Session:[/] [{theme.PromptSessionColor}]{session.TicketId}[/]"),
             new Markup($"[bold]Created:[/] {FormatTimestamp(session.CreatedAt)}"),
             new Markup($"[bold]Last Accessed:[/] {FormatTimestamp(session.LastAccessedAt)}"),
-            new Markup($"[bold]Cosmos Alias:[/] {session.ActiveContext?.ActiveCosmosAlias ?? "[dim]none[/]"}"),
-            new Markup($"[bold]Blob Alias:[/] {session.ActiveContext?.ActiveBlobAlias ?? "[dim]none[/]"}")
+            new Markup($"[bold]Cosmos Alias:[/] {cosmosAlias}"),
+            new Markup($"[bold]Blob Alias:[/] {blobAlias}")
         ))
         {
-            Header = new PanelHeader("[bold green]Session Status[/]"),
+            Header = new PanelHeader($"[bold {theme.SuccessColor}]Session Status[/]"),
             Border = BoxBorder.Rounded
         };
 
@@ -209,10 +225,10 @@ public sealed class SessionCommand : ICommand
         return CommandResult.Ok();
     }
 
-    private static string GetContextSummary(SessionContext? activeContext)
+    private static string GetContextSummary(SessionContext? activeContext, ThemeConfig theme)
     {
         if (activeContext is null)
-            return "[dim]none[/]";
+            return $"[{theme.DimColor}]none[/]";
 
         var parts = new List<string>();
         if (activeContext.ActiveCosmosAlias is not null)
@@ -221,7 +237,7 @@ public sealed class SessionCommand : ICommand
         if (activeContext.ActiveBlobAlias is not null)
             parts.Add($"blob:{activeContext.ActiveBlobAlias}");
 
-        return parts.Count > 0 ? string.Join(", ", parts) : "[dim]none[/]";
+        return parts.Count > 0 ? string.Join(", ", parts) : $"[{theme.DimColor}]none[/]";
     }
 
     private static string FormatTimestamp(DateTimeOffset timestamp)

@@ -1,3 +1,4 @@
+using NimbusStation.Cli.Output;
 using NimbusStation.Core.Commands;
 using NimbusStation.Infrastructure.Configuration;
 using Spectre.Console;
@@ -35,6 +36,8 @@ public sealed class InfoCommand : ICommand
     /// <inheritdoc/>
     public Task<CommandResult> ExecuteAsync(string[] args, CommandContext context, CancellationToken cancellationToken = default)
     {
+        var theme = _configurationService.GetTheme();
+
         if (context.CurrentSession is null)
             return Task.FromResult(CommandResult.Error("No active session. Use 'session start <ticket>' first."));
 
@@ -44,13 +47,13 @@ public sealed class InfoCommand : ICommand
         if (activeContext is null ||
             (activeContext.ActiveCosmosAlias is null && activeContext.ActiveBlobAlias is null))
         {
-            context.Output.WriteLine("[dim]No active context. Use 'use cosmos <alias>' or 'use blob <alias>' to set one.[/]");
+            context.Output.WriteLine($"[{theme.DimColor}]No active context. Use 'use cosmos <alias>' or 'use blob <alias>' to set one.[/]");
             return Task.FromResult(CommandResult.Ok());
         }
 
         var table = new Table()
             .Border(TableBorder.Rounded)
-            .BorderColor(Color.Grey);
+            .BorderColor(SpectreColorHelper.ParseColorOrDefault(theme.TableBorderColor, Color.Grey));
 
         table.AddColumn(new TableColumn("[bold]Property[/]").LeftAligned());
         table.AddColumn(new TableColumn("[bold]Value[/]").LeftAligned());
@@ -60,8 +63,8 @@ public sealed class InfoCommand : ICommand
         {
             var cosmosConfig = _configurationService.GetCosmosAlias(cosmosAlias);
 
-            table.AddRow("[orange1 bold]CosmosDB[/]", "");
-            table.AddRow("  Alias", $"[cyan]{cosmosAlias}[/]");
+            table.AddRow($"[{theme.PromptCosmosAliasColor} bold]CosmosDB[/]", "");
+            table.AddRow("  Alias", $"[{theme.PromptSessionColor}]{cosmosAlias}[/]");
 
             if (cosmosConfig is not null)
             {
@@ -71,7 +74,7 @@ public sealed class InfoCommand : ICommand
             }
             else
             {
-                table.AddRow("  [dim]Config[/]", "[red]Not found in config[/]");
+                table.AddRow($"  [{theme.DimColor}]Config[/]", $"[{theme.ErrorColor}]Not found in config[/]");
             }
         }
 
@@ -86,8 +89,8 @@ public sealed class InfoCommand : ICommand
         {
             var blobConfig = _configurationService.GetBlobAlias(blobAlias);
 
-            table.AddRow("[magenta bold]Blob Storage[/]", "");
-            table.AddRow("  Alias", $"[cyan]{blobAlias}[/]");
+            table.AddRow($"[{theme.PromptBlobAliasColor} bold]Blob Storage[/]", "");
+            table.AddRow("  Alias", $"[{theme.PromptSessionColor}]{blobAlias}[/]");
 
             if (blobConfig is not null)
             {
@@ -96,7 +99,7 @@ public sealed class InfoCommand : ICommand
             }
             else
             {
-                table.AddRow("  [dim]Config[/]", "[red]Not found in config[/]");
+                table.AddRow($"  [{theme.DimColor}]Config[/]", $"[{theme.ErrorColor}]Not found in config[/]");
             }
         }
 
