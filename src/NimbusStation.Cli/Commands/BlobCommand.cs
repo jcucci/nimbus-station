@@ -1,7 +1,10 @@
+using NimbusStation.Cli.Output;
 using NimbusStation.Core.Commands;
+using NimbusStation.Core.Errors;
 using NimbusStation.Core.Session;
 using NimbusStation.Infrastructure.Configuration;
 using NimbusStation.Providers.Azure.Blob;
+using NimbusStation.Providers.Azure.Errors;
 using Spectre.Console;
 
 namespace NimbusStation.Cli.Commands;
@@ -74,9 +77,14 @@ public sealed class BlobCommand : ICommand
         if (aliasConfig is null)
             return CommandResult.Error($"Storage alias '{activeAlias}' not found in config.");
 
+        var spinner = new SpinnerService(context.Options);
+        var theme = _configurationService.GetTheme();
+
         try
         {
-            var result = await _blobService.ListContainersAsync(activeAlias, cancellationToken);
+            var result = await spinner.RunWithSpinnerAsync(
+                "Loading containers...",
+                () => _blobService.ListContainersAsync(activeAlias, cancellationToken));
 
             var table = new Table();
             table.AddColumn(new TableColumn("[bold]Name[/]").LeftAligned());
@@ -89,15 +97,18 @@ public sealed class BlobCommand : ICommand
                     container.LastModified.ToString("yyyy-MM-dd HH:mm"));
             }
 
-            var theme = _configurationService.GetTheme();
-            AnsiConsole.Write(table);
-            context.Output.WriteErrorLine($"[{theme.DimColor}]{result.Containers.Count} container(s) in {aliasConfig.Account}[/]");
+            context.Output.WriteRenderable(table);
+
+            if (!context.Options.Quiet)
+                context.Output.WriteErrorLine($"[{theme.DimColor}]{result.Containers.Count} container(s) in {aliasConfig.Account}[/]");
 
             return CommandResult.Ok(data: result);
         }
         catch (InvalidOperationException ex)
         {
-            return CommandResult.Error(ex.Message);
+            var error = AzureErrorMapper.FromCliError(ex.Message, activeAlias);
+            ErrorFormatter.WriteError(error, theme.ErrorColor, context.Options.Quiet);
+            return CommandResult.Error(error.Message);
         }
     }
 
@@ -112,10 +123,14 @@ public sealed class BlobCommand : ICommand
             return CommandResult.Error($"Blob alias '{activeAlias}' not found in config.");
 
         var prefix = args.Length > 0 ? args[0] : null;
+        var spinner = new SpinnerService(context.Options);
+        var theme = _configurationService.GetTheme();
 
         try
         {
-            var result = await _blobService.ListBlobsAsync(activeAlias, prefix, cancellationToken);
+            var result = await spinner.RunWithSpinnerAsync(
+                "Loading blobs...",
+                () => _blobService.ListBlobsAsync(activeAlias, prefix, cancellationToken));
 
             var table = new Table();
             table.AddColumn(new TableColumn("[bold]Name[/]").LeftAligned());
@@ -130,15 +145,18 @@ public sealed class BlobCommand : ICommand
                     blob.LastModified.ToString("yyyy-MM-dd HH:mm"));
             }
 
-            var theme = _configurationService.GetTheme();
-            AnsiConsole.Write(table);
-            context.Output.WriteErrorLine($"[{theme.DimColor}]{result.Blobs.Count} blob(s) in {aliasConfig.Container}[/]");
+            context.Output.WriteRenderable(table);
+
+            if (!context.Options.Quiet)
+                context.Output.WriteErrorLine($"[{theme.DimColor}]{result.Blobs.Count} blob(s) in {aliasConfig.Container}[/]");
 
             return CommandResult.Ok(data: result);
         }
         catch (InvalidOperationException ex)
         {
-            return CommandResult.Error(ex.Message);
+            var error = AzureErrorMapper.FromCliError(ex.Message, activeAlias);
+            ErrorFormatter.WriteError(error, theme.ErrorColor, context.Options.Quiet);
+            return CommandResult.Error(error.Message);
         }
     }
 
@@ -157,18 +175,23 @@ public sealed class BlobCommand : ICommand
 
         var blobName = args[0];
 
+        var spinner = new SpinnerService(context.Options);
+        var prompt = new PromptService(context.Options);
+        var theme = _configurationService.GetTheme();
+
         try
         {
-            var result = await _blobService.GetBlobContentAsync(activeAlias, blobName, cancellationToken);
+            var result = await spinner.RunWithSpinnerAsync(
+                "Fetching blob...",
+                () => _blobService.GetBlobContentAsync(activeAlias, blobName, cancellationToken));
 
             // Check for binary content and warn if not piped
-            var theme = _configurationService.GetTheme();
             if (result.IsBinary && !Console.IsOutputRedirected)
             {
                 context.Output.WriteErrorLine($"[{theme.WarningColor}]Warning: This appears to be a binary file ({result.ContentType}).[/]");
                 context.Output.WriteErrorLine($"[{theme.WarningColor}]Use 'blob download' to save to a file, or pipe the output.[/]");
 
-                if (!AnsiConsole.Confirm("Continue anyway?", defaultValue: false))
+                if (!prompt.Confirm("Continue anyway?", defaultValue: false))
                     return CommandResult.Ok();
             }
 
@@ -179,7 +202,9 @@ public sealed class BlobCommand : ICommand
         }
         catch (InvalidOperationException ex)
         {
-            return CommandResult.Error(ex.Message);
+            var error = AzureErrorMapper.FromCliError(ex.Message, blobName);
+            ErrorFormatter.WriteError(error, theme.ErrorColor, context.Options.Quiet);
+            return CommandResult.Error(error.Message);
         }
     }
 
@@ -198,18 +223,33 @@ public sealed class BlobCommand : ICommand
 
         var blobName = args[0];
         var downloadsDir = _sessionService.GetDownloadsDirectory(context.CurrentSession!.TicketId);
+        var spinner = new SpinnerService(context.Options);
+        var prompt = new PromptService(context.Options);
+        var theme = _configurationService.GetTheme();
+
+        // Check if file already exists
+        var expectedPath = Path.Combine(downloadsDir, Path.GetFileName(blobName));
+        if (File.Exists(expectedPath) && !prompt.ConfirmOverwrite(expectedPath))
+        {
+            context.Output.WriteLine($"[{theme.DimColor}]Download cancelled.[/]");
+            return CommandResult.Ok();
+        }
 
         try
         {
-            var theme = _configurationService.GetTheme();
-            var downloadedPath = await _blobService.DownloadBlobAsync(activeAlias, blobName, downloadsDir, cancellationToken);
+            var downloadedPath = await spinner.RunWithSpinnerAsync(
+                $"Downloading {Path.GetFileName(blobName)}...",
+                () => _blobService.DownloadBlobAsync(activeAlias, blobName, downloadsDir, cancellationToken));
+
             context.Output.WriteLine($"[{theme.SuccessColor}]Downloaded to:[/] {downloadedPath}");
 
             return CommandResult.Ok(data: downloadedPath);
         }
         catch (InvalidOperationException ex)
         {
-            return CommandResult.Error(ex.Message);
+            var error = AzureErrorMapper.FromCliError(ex.Message, blobName);
+            ErrorFormatter.WriteError(error, theme.ErrorColor, context.Options.Quiet);
+            return CommandResult.Error(error.Message);
         }
     }
 

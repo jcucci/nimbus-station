@@ -1,3 +1,4 @@
+using NimbusStation.Cli.Output;
 using NimbusStation.Core.Commands;
 using NimbusStation.Core.Session;
 using NimbusStation.Infrastructure.Configuration;
@@ -172,10 +173,11 @@ public sealed class SessionCommand : ICommand
         if (!_sessionService.SessionExists(sessionName))
             return CommandResult.Error($"Session '{sessionName}' not found.");
 
-        // Confirmation prompt - this still uses AnsiConsole directly as it's interactive input
-        var confirmed = AnsiConsole.Confirm(
-            $"[{theme.WarningColor}]Delete session '[{theme.PromptSessionColor}]{sessionName}[/]' and all its data?[/]",
-            defaultValue: false);
+        // Use PromptService for confirmation (respects --yes flag)
+        var prompt = new PromptService(context.Options);
+        var confirmed = prompt.ConfirmDestructive(
+            $"Delete session '{sessionName}' and all its data?",
+            theme.WarningColor);
 
         if (!confirmed)
         {
