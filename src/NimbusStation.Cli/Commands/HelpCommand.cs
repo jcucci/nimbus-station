@@ -11,6 +11,7 @@ public sealed class HelpCommand : ICommand
 {
     private readonly CommandRegistry _registry;
     private readonly IConfigurationService _configurationService;
+    private readonly Lazy<IReadOnlySet<string>> _subcommands;
 
     /// <inheritdoc/>
     public string Name => "help";
@@ -22,8 +23,7 @@ public sealed class HelpCommand : ICommand
     public string Usage => "help [command]";
 
     /// <inheritdoc/>
-    public IReadOnlySet<string> Subcommands =>
-        _registry.GetAllCommands().Select(c => c.Name).ToHashSet();
+    public IReadOnlySet<string> Subcommands => _subcommands.Value;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HelpCommand"/> class.
@@ -34,6 +34,8 @@ public sealed class HelpCommand : ICommand
     {
         _registry = registry;
         _configurationService = configurationService;
+        _subcommands = new Lazy<IReadOnlySet<string>>(
+            () => _registry.GetAllCommands().Select(c => c.Name).ToHashSet());
     }
 
     /// <inheritdoc/>
