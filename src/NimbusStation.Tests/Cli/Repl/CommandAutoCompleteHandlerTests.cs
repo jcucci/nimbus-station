@@ -15,6 +15,8 @@ public class CommandAutoCompleteHandlerTests
         _registry.Register(new TestCommand("session", ["start", "list", "ls", "leave", "resume", "delete", "rm", "status"]));
         _registry.Register(new TestCommand("alias", ["list", "ls", "show", "add", "remove", "rm", "test"]));
         _registry.Register(new TestCommand("cosmos", []));
+        _registry.Register(new TestCommand("help", []));
+        _registry.RegisterAlias("?", "help");
         _handler = new CommandAutoCompleteHandler(_registry);
     }
 

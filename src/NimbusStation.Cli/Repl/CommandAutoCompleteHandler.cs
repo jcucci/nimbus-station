@@ -11,7 +11,7 @@ public sealed class CommandAutoCompleteHandler : IAutoCompleteHandler
 
     private static readonly HashSet<string> _builtInCommands = new(StringComparer.OrdinalIgnoreCase)
     {
-        "help", "exit", "quit", "q", "?"
+        "exit", "quit", "q"
     };
 
     /// <inheritdoc />
@@ -57,9 +57,6 @@ public sealed class CommandAutoCompleteHandler : IAutoCompleteHandler
             .ToArray();
     }
 
-    private IEnumerable<string> GetAllCommandNames()
-    {
-        var registeredCommands = _commandRegistry.GetAllCommands().Select(c => c.Name);
-        return registeredCommands.Concat(_builtInCommands).Distinct(StringComparer.OrdinalIgnoreCase);
-    }
+    private IEnumerable<string> GetAllCommandNames() =>
+        _commandRegistry.GetAllCommandNames().Concat(_builtInCommands).Distinct(StringComparer.OrdinalIgnoreCase);
 }
