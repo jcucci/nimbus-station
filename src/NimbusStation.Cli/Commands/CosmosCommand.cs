@@ -1,8 +1,12 @@
 using System.Text.Json;
+using Microsoft.Azure.Cosmos;
+using NimbusStation.Cli.Output;
 using NimbusStation.Core.Commands;
+using NimbusStation.Core.Errors;
 using NimbusStation.Core.Session;
 using NimbusStation.Infrastructure.Configuration;
 using NimbusStation.Providers.Azure.Cosmos;
+using NimbusStation.Providers.Azure.Errors;
 
 namespace NimbusStation.Cli.Commands;
 
@@ -92,13 +96,14 @@ public sealed class CosmosCommand : ICommand
         if (string.IsNullOrWhiteSpace(sql))
             return CommandResult.Error("Usage: cosmos query \"<SQL>\" [--max-items N]");
 
+        var spinner = new SpinnerService(context.Options);
+        var theme = _configurationService.GetTheme();
+
         try
         {
-            var result = await _cosmosService.ExecuteQueryAsync(
-                activeAlias,
-                sql,
-                maxItems,
-                cancellationToken);
+            var result = await spinner.RunWithSpinnerAsync(
+                "Executing query...",
+                () => _cosmosService.ExecuteQueryAsync(activeAlias, sql, maxItems, cancellationToken));
 
             // Output JSON to stdout for piping (use WriteRaw to avoid markup stripping of JSON brackets)
             var json = JsonSerializer.Serialize(result.Items, _jsonOptions);
@@ -106,10 +111,13 @@ public sealed class CosmosCommand : ICommand
             context.Output.WriteRaw(jsonBytes);
 
             // Output RU charge to stderr so it doesn't interfere with piped JSON
-            context.Output.WriteErrorLine($"Request charge: {result.RequestCharge:F2} RU");
+            if (!context.Options.Quiet)
+            {
+                context.Output.WriteErrorLine($"Request charge: {result.RequestCharge:F2} RU");
 
-            if (result.HasMoreResults)
-                context.Output.WriteErrorLine($"Note: More results available (showing first {result.Items.Count} items)");
+                if (result.HasMoreResults)
+                    context.Output.WriteErrorLine($"Note: More results available (showing first {result.Items.Count} items)");
+            }
 
             // Save results with metadata to queries directory
             await SaveQueryResultAsync(context.CurrentSession!, sql, result, cancellationToken);
@@ -118,17 +126,15 @@ public sealed class CosmosCommand : ICommand
         }
         catch (InvalidOperationException ex)
         {
-            // Key not configured or env var not set
-            return CommandResult.Error(ex.Message);
+            var error = AzureErrorMapper.FromInvalidOperation(ex, activeAlias);
+            ErrorFormatter.WriteError(error, theme.ErrorColor, context.Options.Quiet);
+            return CommandResult.Error(error.Message);
         }
-        catch (Microsoft.Azure.Cosmos.CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+        catch (CosmosException ex)
         {
-            var retryAfter = ex.RetryAfter?.TotalSeconds ?? 1;
-            return CommandResult.Error($"Request was throttled. Try again in {retryAfter:F0} seconds.");
-        }
-        catch (Microsoft.Azure.Cosmos.CosmosException ex)
-        {
-            return CommandResult.Error($"Cosmos DB error: {ex.Message}");
+            var error = AzureErrorMapper.FromCosmosException(ex, aliasName: activeAlias);
+            ErrorFormatter.WriteError(error, theme.ErrorColor, context.Options.Quiet);
+            return CommandResult.Error(error.Message);
         }
     }
 

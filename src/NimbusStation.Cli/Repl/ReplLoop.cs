@@ -2,10 +2,13 @@ using NimbusStation.Cli.Commands;
 using NimbusStation.Cli.Output;
 using NimbusStation.Core.Aliases;
 using NimbusStation.Core.Commands;
+using NimbusStation.Core.Errors;
+using NimbusStation.Core.Options;
 using NimbusStation.Core.Output;
 using NimbusStation.Core.Parsing;
 using NimbusStation.Core.Session;
 using NimbusStation.Core.ShellPiping;
+using NimbusStation.Core.Suggestions;
 using NimbusStation.Infrastructure.Configuration;
 using Spectre.Console;
 
@@ -23,8 +26,10 @@ public sealed class ReplLoop
     private readonly IConfigurationService _configurationService;
     private readonly IOutputWriter _outputWriter;
     private readonly IPipelineExecutor _pipelineExecutor;
+    private readonly GlobalOptions _globalOptions;
 
     private string? _lastSessionId;
+    private ErrorCategory _lastErrorCategory = ErrorCategory.None;
 
     private const string HistoryFileName = ".repl_history";
 
@@ -37,14 +42,16 @@ public sealed class ReplLoop
     /// <param name="sessionStateManager">The session state manager for active session tracking.</param>
     /// <param name="configurationService">The configuration service for loading resource aliases.</param>
     /// <param name="pipelineExecutor">The executor for piped commands.</param>
+    /// <param name="globalOptions">The global CLI options.</param>
     public ReplLoop(
         CommandRegistry commandRegistry,
         IAliasResolver aliasResolver,
         ISessionService sessionService,
         ISessionStateManager sessionStateManager,
         IConfigurationService configurationService,
-        IPipelineExecutor pipelineExecutor)
-        : this(commandRegistry, aliasResolver, sessionService, sessionStateManager, configurationService, pipelineExecutor, new ConsoleOutputWriter())
+        IPipelineExecutor pipelineExecutor,
+        GlobalOptions globalOptions)
+        : this(commandRegistry, aliasResolver, sessionService, sessionStateManager, configurationService, pipelineExecutor, globalOptions, new ConsoleOutputWriter())
     {
     }
 
@@ -57,6 +64,7 @@ public sealed class ReplLoop
     /// <param name="sessionStateManager">The session state manager for active session tracking.</param>
     /// <param name="configurationService">The configuration service for loading resource aliases.</param>
     /// <param name="pipelineExecutor">The executor for piped commands.</param>
+    /// <param name="globalOptions">The global CLI options.</param>
     /// <param name="outputWriter">The output writer for command output.</param>
     public ReplLoop(
         CommandRegistry commandRegistry,
@@ -65,6 +73,7 @@ public sealed class ReplLoop
         ISessionStateManager sessionStateManager,
         IConfigurationService configurationService,
         IPipelineExecutor pipelineExecutor,
+        GlobalOptions globalOptions,
         IOutputWriter outputWriter)
     {
         _commandRegistry = commandRegistry;
@@ -73,6 +82,7 @@ public sealed class ReplLoop
         _sessionStateManager = sessionStateManager;
         _configurationService = configurationService;
         _pipelineExecutor = pipelineExecutor;
+        _globalOptions = globalOptions;
         _outputWriter = outputWriter;
     }
 
@@ -80,7 +90,8 @@ public sealed class ReplLoop
     /// Runs the REPL loop until the user exits.
     /// </summary>
     /// <param name="cancellationToken">A token that can be used to cancel and stop the REPL loop.</param>
-    public async Task RunAsync(CancellationToken cancellationToken = default)
+    /// <returns>The exit code based on the last error category.</returns>
+    public async Task<int> RunAsync(CancellationToken cancellationToken = default)
     {
         // Eager-load configuration at startup so alias lookups are instant
         await _configurationService.LoadConfigurationAsync(cancellationToken);
@@ -106,8 +117,10 @@ public sealed class ReplLoop
             {
                 var theme = _configurationService.GetTheme();
                 AnsiConsole.WriteLine();
-                AnsiConsole.MarkupLine($"[{theme.DimColor}]Goodbye![/]");
+                if (!_globalOptions.Quiet)
+                    AnsiConsole.MarkupLine($"[{theme.DimColor}]Goodbye![/]");
                 SaveHistory();
+                _lastErrorCategory = ErrorCategory.Cancelled;
                 break;
             }
 
@@ -123,13 +136,15 @@ public sealed class ReplLoop
             if (!aliasResult.IsSuccess)
             {
                 var theme = _configurationService.GetTheme();
-                AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(aliasResult.Error!)}");
+                var error = UserFacingError.Configuration(aliasResult.Error!);
+                ErrorFormatter.WriteError(error, theme.ErrorColor, _globalOptions.Quiet);
+                _lastErrorCategory = error.Category;
                 continue;
             }
 
             var effectiveInput = aliasResult.ExpandedInput;
 
-            if (aliasResult.WasExpanded)
+            if (aliasResult.WasExpanded && !_globalOptions.Quiet)
             {
                 var theme = _configurationService.GetTheme();
                 AnsiConsole.MarkupLine($"[{theme.DimColor}]>[/] {Markup.Escape(effectiveInput)}");
@@ -151,9 +166,10 @@ public sealed class ReplLoop
             if (IsExitCommand(commandName))
             {
                 var theme = _configurationService.GetTheme();
-                AnsiConsole.MarkupLine($"[{theme.DimColor}]Goodbye![/]");
+                if (!_globalOptions.Quiet)
+                    AnsiConsole.MarkupLine($"[{theme.DimColor}]Goodbye![/]");
                 SaveHistory();
-                break;
+                return ExitCodes.Success;
             }
 
             if (IsHelpCommand(commandName))
@@ -166,21 +182,28 @@ public sealed class ReplLoop
             if (command is null)
             {
                 var theme = _configurationService.GetTheme();
-                AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Unknown command:[/] {Markup.Escape(commandName)}");
-                AnsiConsole.MarkupLine($"[{theme.DimColor}]Type 'help' for available commands.[/]");
+                var allCommandNames = _commandRegistry.GetAllCommands().Select(c => c.Name);
+                var suggestions = CommandSuggester.GetSuggestions(commandName, allCommandNames);
+                ErrorFormatter.WriteUnknownCommand(commandName, suggestions, theme.ErrorColor, _globalOptions.Quiet);
+                _lastErrorCategory = ErrorCategory.General;
                 continue;
             }
 
             try
             {
                 var args = InputParser.GetArguments(tokens);
-                var context = new CommandContext(_sessionStateManager, _outputWriter);
+                var context = new CommandContext(_sessionStateManager, _outputWriter, _globalOptions);
                 var result = await command.ExecuteAsync(args, context, cancellationToken);
 
                 if (!result.Success && result.Message is not null)
                 {
                     var theme = _configurationService.GetTheme();
-                    AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(result.Message)}");
+                    ErrorFormatter.WriteSimpleError(result.Message, theme.ErrorColor);
+                    _lastErrorCategory = ErrorCategory.General;
+                }
+                else if (result.Success)
+                {
+                    _lastErrorCategory = ErrorCategory.None;
                 }
 
                 // Session may have changed - handle history persistence
@@ -190,16 +213,20 @@ public sealed class ReplLoop
             {
                 var theme = _configurationService.GetTheme();
                 AnsiConsole.MarkupLine($"[{theme.WarningColor}]Command cancelled.[/]");
+                _lastErrorCategory = ErrorCategory.Cancelled;
             }
             catch (Exception ex)
             {
                 var theme = _configurationService.GetTheme();
-                AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(ex.Message)}");
+                ErrorFormatter.WriteSimpleError(ex.Message, theme.ErrorColor);
+                _lastErrorCategory = ErrorCategory.General;
 #if DEBUG
                 AnsiConsole.WriteException(ex);
 #endif
             }
         }
+
+        return ExitCodes.FromCategory(_lastErrorCategory);
     }
 
     private async Task ExecutePipelineAsync(string input, CancellationToken cancellationToken)
@@ -209,7 +236,8 @@ public sealed class ReplLoop
 
         if (!pipeline.IsValid)
         {
-            AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(pipeline.Error ?? "Invalid pipeline")}");
+            ErrorFormatter.WriteSimpleError(pipeline.Error ?? "Invalid pipeline", theme.ErrorColor);
+            _lastErrorCategory = ErrorCategory.General;
             return;
         }
 
@@ -222,9 +250,12 @@ public sealed class ReplLoop
 
             if (!result.Success)
             {
-                AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(result.Error ?? "Pipeline execution failed")}");
+                ErrorFormatter.WriteSimpleError(result.Error ?? "Pipeline execution failed", theme.ErrorColor);
+                _lastErrorCategory = ErrorCategory.General;
                 return;
             }
+
+            _lastErrorCategory = ErrorCategory.None;
 
             // Display stdout
             if (!string.IsNullOrEmpty(result.Output))
@@ -235,7 +266,7 @@ public sealed class ReplLoop
                 AnsiConsole.MarkupLine($"[{theme.ErrorColor}]{Markup.Escape(result.ErrorOutput!)}[/]");
 
             // Show warning for non-zero exit code
-            if (result.HasNonZeroExitCode)
+            if (result.HasNonZeroExitCode && !_globalOptions.Quiet)
                 AnsiConsole.MarkupLine($"[{theme.WarningColor}]Process exited with code {result.ExternalExitCode}[/]");
 
             // Session may have changed during internal command - handle history persistence
@@ -244,10 +275,12 @@ public sealed class ReplLoop
         catch (OperationCanceledException)
         {
             AnsiConsole.MarkupLine($"[{theme.WarningColor}]Pipeline cancelled.[/]");
+            _lastErrorCategory = ErrorCategory.Cancelled;
         }
         catch (Exception ex)
         {
-            AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Error:[/] {Markup.Escape(ex.Message)}");
+            ErrorFormatter.WriteSimpleError(ex.Message, theme.ErrorColor);
+            _lastErrorCategory = ErrorCategory.General;
 #if DEBUG
             AnsiConsole.WriteException(ex);
 #endif
@@ -273,7 +306,7 @@ public sealed class ReplLoop
             return CommandResult.Error($"Unknown command: {commandName}");
 
         var args = InputParser.GetArguments(tokens);
-        var context = new CommandContext(_sessionStateManager, outputWriter);
+        var context = new CommandContext(_sessionStateManager, outputWriter, _globalOptions);
 
         return await command.ExecuteAsync(args, context, cancellationToken);
     }

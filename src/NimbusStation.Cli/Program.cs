@@ -5,6 +5,8 @@ using NimbusStation.Cli.Commands;
 using NimbusStation.Cli.Output;
 using NimbusStation.Cli.Repl;
 using NimbusStation.Core.Aliases;
+using NimbusStation.Core.Errors;
+using NimbusStation.Core.Options;
 using NimbusStation.Core.Session;
 using NimbusStation.Core.ShellPiping;
 using NimbusStation.Infrastructure.Aliases;
@@ -24,20 +26,30 @@ namespace NimbusStation.Cli;
 /// </summary>
 public static class Program
 {
-    public static async Task Main(string[] args)
+    public static async Task<int> Main(string[] args)
     {
+        // Handle --version first (before parsing other options)
         if (args.Length > 0 && args[0] is "--version" or "-v")
         {
             PrintVersion();
-            return;
+            return ExitCodes.Success;
         }
 
-        var services = ConfigureServices();
+        // Parse global options (--verbose, --quiet, --no-color, --yes)
+        var (globalOptions, _) = GlobalOptions.Parse(args);
 
-        // Load configuration and print themed banner
+        // Apply --no-color setting before any console output
+        if (globalOptions.NoColor)
+            AnsiConsole.Profile.Capabilities.Ansi = false;
+
+        var services = ConfigureServices(globalOptions);
+
+        // Load configuration and print themed banner (unless quiet mode)
         var configService = services.GetRequiredService<IConfigurationService>();
         await configService.LoadConfigurationAsync();
-        BannerPrinter.Print(configService.GetTheme(), GetVersion());
+
+        if (!globalOptions.Quiet)
+            BannerPrinter.Print(configService.GetTheme(), GetVersion());
 
         var repl = services.GetRequiredService<ReplLoop>();
 
@@ -47,16 +59,21 @@ public static class Program
         // handles Ctrl+C internally by returning null, which ReplLoop handles.
         // Setting e.Cancel = true would interfere with ReadLine's Ctrl+C handling.
 
-        await repl.RunAsync(cts.Token);
+        var exitCode = await repl.RunAsync(cts.Token);
+        return exitCode;
     }
 
-    private static ServiceProvider ConfigureServices()
+    private static ServiceProvider ConfigureServices(GlobalOptions globalOptions)
     {
         var services = new ServiceCollection();
 
-        // Logging
+        // Register global options
+        services.AddSingleton(globalOptions);
+
+        // Logging - use Debug level if verbose, Warning otherwise
+        var logLevel = globalOptions.Verbose ? LogLevel.Debug : LogLevel.Warning;
         services.AddLogging(builder => builder
-            .SetMinimumLevel(LogLevel.Warning)
+            .SetMinimumLevel(logLevel)
             .AddConsole());
 
         // Core services
