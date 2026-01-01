@@ -104,6 +104,7 @@ public static class Program
         services.AddSingleton<ThemeCommand>();
         services.AddSingleton<CosmosCommand>();
         services.AddSingleton<BlobCommand>();
+        services.AddSingleton<HelpCommand>();
         services.AddSingleton<CommandRegistry>(sp =>
         {
             var registry = new CommandRegistry();
@@ -115,6 +116,8 @@ public static class Program
             registry.Register(sp.GetRequiredService<AuthCommand>());
             registry.Register(sp.GetRequiredService<CosmosCommand>());
             registry.Register(sp.GetRequiredService<BlobCommand>());
+            registry.Register(sp.GetRequiredService<HelpCommand>());
+            registry.RegisterAlias("?", "help");
             return registry;
         });
 

@@ -172,12 +172,6 @@ public sealed class ReplLoop
                 return ExitCodes.Success;
             }
 
-            if (IsHelpCommand(commandName))
-            {
-                ShowHelp(tokens);
-                continue;
-            }
-
             var command = _commandRegistry.GetCommand(commandName);
             if (command is null)
             {
@@ -298,8 +292,15 @@ public sealed class ReplLoop
         if (commandName is null)
             return CommandResult.Error("Empty command");
 
+        // Help and exit commands cannot be piped - they are REPL-control commands.
+        // Note: "help" and "?" are registered in CommandRegistry, but we check explicitly
+        // here to enforce this pipe restriction before command lookup occurs.
         if (IsExitCommand(commandName) || IsHelpCommand(commandName))
             return CommandResult.Error($"Cannot pipe '{commandName}' command");
+
+        static bool IsHelpCommand(string command) =>
+            command.Equals("help", StringComparison.OrdinalIgnoreCase) ||
+            command.Equals("?", StringComparison.OrdinalIgnoreCase);
 
         var command = _commandRegistry.GetCommand(commandName);
         if (command is null)
@@ -346,10 +347,6 @@ public sealed class ReplLoop
         command.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
         command.Equals("quit", StringComparison.OrdinalIgnoreCase) ||
         command.Equals("q", StringComparison.OrdinalIgnoreCase);
-
-    private static bool IsHelpCommand(string command) =>
-        command.Equals("help", StringComparison.OrdinalIgnoreCase) ||
-        command.Equals("?", StringComparison.OrdinalIgnoreCase);
 
     private void HandleSessionChange()
     {
@@ -411,47 +408,5 @@ public sealed class ReplLoop
         {
             // Silently ignore history load failures - not critical
         }
-    }
-
-    private void ShowHelp(string[] tokens)
-    {
-        var theme = _configurationService.GetTheme();
-        var args = InputParser.GetArguments(tokens);
-
-        if (args.Length > 0)
-        {
-            var commandName = args[0];
-            var command = _commandRegistry.GetCommand(commandName);
-
-            if (command is null)
-            {
-                AnsiConsole.MarkupLine($"[{theme.ErrorColor}]Unknown command:[/] {Markup.Escape(commandName)}");
-                return;
-            }
-
-            AnsiConsole.MarkupLine($"[bold]{command.Name}[/] - {command.Description}");
-            AnsiConsole.MarkupLine($"[{theme.DimColor}]Usage:[/] {command.Usage}");
-            return;
-        }
-
-        AnsiConsole.MarkupLine("[bold]Available Commands:[/]");
-        AnsiConsole.WriteLine();
-
-        var table = new Table()
-            .Border(TableBorder.None)
-            .HideHeaders();
-
-        table.AddColumn("Command");
-        table.AddColumn("Description");
-
-        foreach (var command in _commandRegistry.GetAllCommands().OrderBy(c => c.Name))
-            table.AddRow($"[{theme.TableHeaderColor}]{command.Name}[/]", command.Description);
-
-        table.AddRow($"[{theme.TableHeaderColor}]help[/]", "Show this help message");
-        table.AddRow($"[{theme.TableHeaderColor}]exit[/]", "Exit the REPL");
-
-        AnsiConsole.Write(table);
-        AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine($"[{theme.DimColor}]Type 'help <command>' for more information about a specific command.[/]");
     }
 }
