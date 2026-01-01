@@ -25,6 +25,7 @@ public static class ExitCodes
     /// </summary>
     public static int FromCategory(ErrorCategory category) => category switch
     {
+        ErrorCategory.None => Success,
         ErrorCategory.General => GeneralError,
         ErrorCategory.Authentication => AuthenticationError,
         ErrorCategory.Configuration => ConfigurationError,

@@ -227,8 +227,8 @@ public sealed class BlobCommand : ICommand
         var prompt = new PromptService(context.Options);
         var theme = _configurationService.GetTheme();
 
-        // Check if file already exists
-        var expectedPath = Path.Combine(downloadsDir, Path.GetFileName(blobName));
+        // Check if file already exists (use same path calculation as BlobService.DownloadBlobAsync)
+        var expectedPath = Path.Combine(downloadsDir, blobName.Replace('/', Path.DirectorySeparatorChar));
         if (File.Exists(expectedPath) && !prompt.ConfirmOverwrite(expectedPath))
         {
             context.Output.WriteLine($"[{theme.DimColor}]Download cancelled.[/]");
@@ -238,7 +238,7 @@ public sealed class BlobCommand : ICommand
         try
         {
             var downloadedPath = await spinner.RunWithSpinnerAsync(
-                $"Downloading {Path.GetFileName(blobName)}...",
+                $"Downloading {blobName}...",
                 () => _blobService.DownloadBlobAsync(activeAlias, blobName, downloadsDir, cancellationToken));
 
             context.Output.WriteLine($"[{theme.SuccessColor}]Downloaded to:[/] {downloadedPath}");

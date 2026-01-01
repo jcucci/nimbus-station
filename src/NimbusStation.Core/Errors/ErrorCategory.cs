@@ -5,6 +5,9 @@ namespace NimbusStation.Core.Errors;
 /// </summary>
 public enum ErrorCategory
 {
+    /// <summary>No error (success).</summary>
+    None,
+
     /// <summary>General/unclassified error.</summary>
     General,
 

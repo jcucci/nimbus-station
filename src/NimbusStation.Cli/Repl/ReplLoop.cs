@@ -29,7 +29,7 @@ public sealed class ReplLoop
     private readonly GlobalOptions _globalOptions;
 
     private string? _lastSessionId;
-    private ErrorCategory _lastErrorCategory = ErrorCategory.General;
+    private ErrorCategory _lastErrorCategory = ErrorCategory.None;
 
     private const string HistoryFileName = ".repl_history";
 
@@ -201,6 +201,10 @@ public sealed class ReplLoop
                     ErrorFormatter.WriteSimpleError(result.Message, theme.ErrorColor);
                     _lastErrorCategory = ErrorCategory.General;
                 }
+                else if (result.Success)
+                {
+                    _lastErrorCategory = ErrorCategory.None;
+                }
 
                 // Session may have changed - handle history persistence
                 HandleSessionChange();
@@ -250,6 +254,8 @@ public sealed class ReplLoop
                 _lastErrorCategory = ErrorCategory.General;
                 return;
             }
+
+            _lastErrorCategory = ErrorCategory.None;
 
             // Display stdout
             if (!string.IsNullOrEmpty(result.Output))

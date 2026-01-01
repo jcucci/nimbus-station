@@ -36,7 +36,7 @@ public static class Program
         }
 
         // Parse global options (--verbose, --quiet, --no-color, --yes)
-        var (globalOptions, remainingArgs) = GlobalOptions.Parse(args);
+        var (globalOptions, _) = GlobalOptions.Parse(args);
 
         // Apply --no-color setting before any console output
         if (globalOptions.NoColor)
