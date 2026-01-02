@@ -9,11 +9,6 @@ public sealed class CommandAutoCompleteHandler : IAutoCompleteHandler
 {
     private readonly CommandRegistry _commandRegistry;
 
-    private static readonly HashSet<string> _builtInCommands = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "exit", "quit", "q"
-    };
-
     /// <inheritdoc />
     public char[] Separators { get; set; } = [' '];
 
@@ -58,5 +53,5 @@ public sealed class CommandAutoCompleteHandler : IAutoCompleteHandler
     }
 
     private IEnumerable<string> GetAllCommandNames() =>
-        _commandRegistry.GetAllCommandNames().Concat(_builtInCommands).Distinct(StringComparer.OrdinalIgnoreCase);
+        _commandRegistry.GetAllCommandNames();
 }

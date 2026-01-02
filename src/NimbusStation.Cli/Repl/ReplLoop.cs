@@ -163,15 +163,6 @@ public sealed class ReplLoop
             if (commandName is null)
                 continue;
 
-            if (IsExitCommand(commandName))
-            {
-                var theme = _configurationService.GetTheme();
-                if (!_globalOptions.Quiet)
-                    AnsiConsole.MarkupLine($"[{theme.DimColor}]Goodbye![/]");
-                SaveHistory();
-                return ExitCodes.Success;
-            }
-
             var command = _commandRegistry.GetCommand(commandName);
             if (command is null)
             {
@@ -188,6 +179,16 @@ public sealed class ReplLoop
                 var args = InputParser.GetArguments(tokens);
                 var context = new CommandContext(_sessionStateManager, _outputWriter, _globalOptions);
                 var result = await command.ExecuteAsync(args, context, cancellationToken);
+
+                // Check if command signals REPL to exit
+                if (result.IsExitSignal)
+                {
+                    var theme = _configurationService.GetTheme();
+                    if (!_globalOptions.Quiet && result.Message is not null)
+                        AnsiConsole.MarkupLine($"[{theme.DimColor}]{result.Message}[/]");
+                    SaveHistory();
+                    return result.Data is int exitCode ? exitCode : ExitCodes.Success;
+                }
 
                 if (!result.Success && result.Message is not null)
                 {
@@ -293,10 +294,16 @@ public sealed class ReplLoop
             return CommandResult.Error("Empty command");
 
         // Help and exit commands cannot be piped - they are REPL-control commands.
-        // Note: "help" and "?" are registered in CommandRegistry, but we check explicitly
-        // here to enforce this pipe restriction before command lookup occurs.
+        // Note: These commands and aliases are also registered in CommandRegistry (Program.cs),
+        // but we check explicitly here to enforce this pipe restriction before command lookup.
+        // This duplication is intentional to keep the pipe restriction simple and explicit.
         if (IsExitCommand(commandName) || IsHelpCommand(commandName))
             return CommandResult.Error($"Cannot pipe '{commandName}' command");
+
+        static bool IsExitCommand(string command) =>
+            command.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
+            command.Equals("quit", StringComparison.OrdinalIgnoreCase) ||
+            command.Equals("q", StringComparison.OrdinalIgnoreCase);
 
         static bool IsHelpCommand(string command) =>
             command.Equals("help", StringComparison.OrdinalIgnoreCase) ||
@@ -342,11 +349,6 @@ public sealed class ReplLoop
 
         return prompt + "\u203a ";
     }
-
-    private static bool IsExitCommand(string command) =>
-        command.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
-        command.Equals("quit", StringComparison.OrdinalIgnoreCase) ||
-        command.Equals("q", StringComparison.OrdinalIgnoreCase);
 
     private void HandleSessionChange()
     {
