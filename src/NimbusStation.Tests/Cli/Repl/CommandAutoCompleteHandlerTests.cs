@@ -17,6 +17,9 @@ public class CommandAutoCompleteHandlerTests
         _registry.Register(new TestCommand("cosmos", []));
         _registry.Register(new TestCommand("help", []));
         _registry.RegisterAlias("?", "help");
+        _registry.Register(new TestCommand("exit", []));
+        _registry.RegisterAlias("quit", "exit");
+        _registry.RegisterAlias("q", "exit");
         _handler = new CommandAutoCompleteHandler(_registry);
     }
 
@@ -71,7 +74,7 @@ public class CommandAutoCompleteHandlerTests
     }
 
     [Fact]
-    public void GetSuggestions_BuiltInCommands_AreIncluded()
+    public void GetSuggestions_CommandsAndAliases_AreIncluded()
     {
         var suggestions = _handler.GetSuggestions("", index: 0);
 
@@ -83,7 +86,7 @@ public class CommandAutoCompleteHandlerTests
     }
 
     [Fact]
-    public void GetSuggestions_PartialBuiltInCommand_ReturnsMatch()
+    public void GetSuggestions_PartialCommand_ReturnsMatch()
     {
         var suggestions = _handler.GetSuggestions("he", index: 0);
 
@@ -145,7 +148,7 @@ public class CommandAutoCompleteHandlerTests
     }
 
     [Fact]
-    public void GetSuggestions_BuiltInCommandWithSpace_ReturnsEmptyArray()
+    public void GetSuggestions_HelpCommandWithSpace_ReturnsEmptyArray()
     {
         var suggestions = _handler.GetSuggestions("help ", index: 5);
 

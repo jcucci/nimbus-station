@@ -105,6 +105,7 @@ public static class Program
         services.AddSingleton<CosmosCommand>();
         services.AddSingleton<BlobCommand>();
         services.AddSingleton<HelpCommand>();
+        services.AddSingleton<ExitCommand>();
         services.AddSingleton<CommandRegistry>(sp =>
         {
             var registry = new CommandRegistry();
@@ -118,6 +119,9 @@ public static class Program
             registry.Register(sp.GetRequiredService<BlobCommand>());
             registry.Register(sp.GetRequiredService<HelpCommand>());
             registry.RegisterAlias("?", "help");
+            registry.Register(sp.GetRequiredService<ExitCommand>());
+            registry.RegisterAlias("quit", "exit");
+            registry.RegisterAlias("q", "exit");
             return registry;
         });
 

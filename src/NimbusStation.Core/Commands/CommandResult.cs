@@ -6,10 +6,12 @@ namespace NimbusStation.Core.Commands;
 /// <param name="Success">Whether the command executed successfully.</param>
 /// <param name="Message">An optional message to display to the user.</param>
 /// <param name="Data">Optional data returned by the command.</param>
+/// <param name="IsExitSignal">Whether this result signals the REPL should exit.</param>
 public sealed record CommandResult(
     bool Success,
     string? Message = null,
-    object? Data = null)
+    object? Data = null,
+    bool IsExitSignal = false)
 {
     /// <summary>
     /// Creates a successful result with an optional message.
@@ -32,4 +34,21 @@ public sealed record CommandResult(
     /// <param name="message">The error message.</param>
     /// <returns>A failed command result.</returns>
     public static CommandResult Error(string message) => new(Success: false, Message: message);
+
+    /// <summary>
+    /// Creates a result that signals the REPL to exit.
+    /// </summary>
+    /// <param name="message">The exit message to display.</param>
+    /// <returns>A command result that signals exit.</returns>
+    public static CommandResult Exit(string? message = "Goodbye!") =>
+        new(Success: true, Message: message, IsExitSignal: true);
+
+    /// <summary>
+    /// Creates a result that signals the REPL to exit with a specific exit code.
+    /// </summary>
+    /// <param name="exitCode">The exit code to return.</param>
+    /// <param name="message">The exit message to display.</param>
+    /// <returns>A command result that signals exit with the specified code.</returns>
+    public static CommandResult Exit(int exitCode, string? message = "Goodbye!") =>
+        new(Success: true, Message: message, Data: exitCode, IsExitSignal: true);
 }
