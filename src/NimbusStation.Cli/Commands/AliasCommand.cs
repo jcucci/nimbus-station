@@ -15,10 +15,10 @@ public sealed class AliasCommand : ICommand
     private readonly IAliasResolver _aliasResolver;
     private readonly IConfigurationService _configurationService;
 
-    private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
-    {
+    private static readonly HashSet<string> _subcommands =
+    [
         "list", "ls", "show", "add", "remove", "rm", "test"
-    };
+    ];
 
     /// <inheritdoc/>
     public string Name => "alias";

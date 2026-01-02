@@ -71,4 +71,15 @@ public sealed class ExitCommandTests
     {
         Assert.Empty(_command.Subcommands);
     }
+
+    [Fact]
+    public void Aliases_ContainsQuitAndQ()
+    {
+        Assert.Contains("quit", _command.Aliases);
+        Assert.Contains("q", _command.Aliases);
+        Assert.Equal(2, _command.Aliases.Count);
+    }
+
+    [Fact]
+    public void CanBePiped_ReturnsFalse() => Assert.False(_command.CanBePiped);
 }

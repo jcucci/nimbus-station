@@ -29,13 +29,14 @@ public sealed class CommandRegistryTests
     }
 
     [Fact]
-    public void GetCommand_IsCaseInsensitive()
+    public void GetCommand_IsCaseSensitive()
     {
         var command = new TestCommand("test");
         _registry.Register(command);
 
-        Assert.Same(command, _registry.GetCommand("TEST"));
-        Assert.Same(command, _registry.GetCommand("Test"));
+        Assert.Same(command, _registry.GetCommand("test"));
+        Assert.Null(_registry.GetCommand("TEST"));
+        Assert.Null(_registry.GetCommand("Test"));
     }
 
     [Fact]
@@ -49,13 +50,14 @@ public sealed class CommandRegistryTests
     }
 
     [Fact]
-    public void RegisterAlias_IsCaseInsensitive()
+    public void RegisterAlias_IsCaseSensitive()
     {
         var command = new TestCommand("help");
         _registry.Register(command);
         _registry.RegisterAlias("h", "help");
 
-        Assert.Same(command, _registry.GetCommand("H"));
+        Assert.Same(command, _registry.GetCommand("h"));
+        Assert.Null(_registry.GetCommand("H"));
     }
 
     [Fact]
@@ -119,6 +121,74 @@ public sealed class CommandRegistryTests
         Assert.Equal(3, names.Count);
     }
 
+    [Fact]
+    public void Register_AutoRegistersCommandAliases()
+    {
+        var command = new TestCommandWithAliases("foo", ["f", "fo"]);
+        _registry.Register(command);
+
+        Assert.Same(command, _registry.GetCommand("foo"));
+        Assert.Same(command, _registry.GetCommand("f"));
+        Assert.Same(command, _registry.GetCommand("fo"));
+    }
+
+    [Fact]
+    public void Register_ThrowsOnDuplicateCommandName()
+    {
+        _registry.Register(new TestCommand("test"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => _registry.Register(new TestCommand("test")));
+        Assert.Contains("already registered", ex.Message);
+    }
+
+    [Fact]
+    public void Register_ThrowsWhenAliasConflictsWithCommandName()
+    {
+        _registry.Register(new TestCommand("help"));
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => _registry.Register(new TestCommandWithAliases("foo", ["help"])));
+        Assert.Contains("conflicts with existing command", ex.Message);
+    }
+
+    [Fact]
+    public void Register_ThrowsWhenCommandNameConflictsWithExistingAlias()
+    {
+        _registry.Register(new TestCommandWithAliases("foo", ["bar"]));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => _registry.Register(new TestCommand("bar")));
+        Assert.Contains("conflicts with existing alias", ex.Message);
+    }
+
+    [Fact]
+    public void Register_ThrowsOnDuplicateAlias()
+    {
+        _registry.Register(new TestCommandWithAliases("foo", ["x"]));
+
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => _registry.Register(new TestCommandWithAliases("bar", ["x"])));
+        Assert.Contains("already registered", ex.Message);
+    }
+
+    [Fact]
+    public void RegisterAlias_ThrowsWhenAliasConflictsWithCommandName()
+    {
+        _registry.Register(new TestCommand("help"));
+
+        var ex = Assert.Throws<InvalidOperationException>(() => _registry.RegisterAlias("help", "other"));
+        Assert.Contains("conflicts with existing command", ex.Message);
+    }
+
+    [Fact]
+    public void RegisterAlias_ThrowsOnDuplicateAlias()
+    {
+        _registry.Register(new TestCommand("help"));
+        _registry.RegisterAlias("h", "help");
+
+        var ex = Assert.Throws<InvalidOperationException>(() => _registry.RegisterAlias("h", "other"));
+        Assert.Contains("already registered", ex.Message);
+    }
+
     private sealed class TestCommand : ICommand
     {
         public string Name { get; }
@@ -127,6 +197,24 @@ public sealed class CommandRegistryTests
         public IReadOnlySet<string> Subcommands { get; } = new HashSet<string>();
 
         public TestCommand(string name) => Name = name;
+
+        public Task<CommandResult> ExecuteAsync(string[] args, CommandContext context, CancellationToken cancellationToken = default) =>
+            Task.FromResult(CommandResult.Ok());
+    }
+
+    private sealed class TestCommandWithAliases : ICommand
+    {
+        public string Name { get; }
+        public string Description => "Test command with aliases";
+        public string Usage => $"{Name} [args]";
+        public IReadOnlySet<string> Subcommands { get; } = new HashSet<string>();
+        public IReadOnlySet<string> Aliases { get; }
+
+        public TestCommandWithAliases(string name, IEnumerable<string> aliases)
+        {
+            Name = name;
+            Aliases = aliases.ToHashSet();
+        }
 
         public Task<CommandResult> ExecuteAsync(string[] args, CommandContext context, CancellationToken cancellationToken = default) =>
             Task.FromResult(CommandResult.Ok());

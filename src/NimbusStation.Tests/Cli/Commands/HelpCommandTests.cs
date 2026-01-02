@@ -101,6 +101,16 @@ public sealed class HelpCommandTests
         Assert.Contains("test", subcommands);
     }
 
+    [Fact]
+    public void Aliases_ContainsQuestionMark()
+    {
+        Assert.Contains("?", _command.Aliases);
+        Assert.Single(_command.Aliases);
+    }
+
+    [Fact]
+    public void CanBePiped_ReturnsFalse() => Assert.False(_command.CanBePiped);
+
     private sealed class TestCommand : ICommand
     {
         public string Name => "test";

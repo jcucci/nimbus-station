@@ -20,6 +20,12 @@ public sealed class ExitCommand : ICommand
     public IReadOnlySet<string> Subcommands { get; } = new HashSet<string>();
 
     /// <inheritdoc/>
+    public IReadOnlySet<string> Aliases { get; } = new HashSet<string> { "quit", "q" };
+
+    /// <inheritdoc/>
+    public bool CanBePiped => false;
+
+    /// <inheritdoc/>
     public Task<CommandResult> ExecuteAsync(string[] args, CommandContext context, CancellationToken cancellationToken = default) =>
         Task.FromResult(CommandResult.Exit());
 }

@@ -12,10 +12,7 @@ public sealed class ThemeCommand : ICommand
 {
     private readonly IConfigurationService _configurationService;
 
-    private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "list", "ls", "preview", "current", "presets"
-    };
+    private static readonly HashSet<string> _subcommands = ["list", "ls", "preview", "current", "presets"];
 
     /// <inheritdoc/>
     public string Name => "theme";

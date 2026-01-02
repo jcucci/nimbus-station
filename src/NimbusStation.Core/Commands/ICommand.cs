@@ -27,6 +27,18 @@ public interface ICommand
     IReadOnlySet<string> Subcommands => new HashSet<string>();
 
     /// <summary>
+    /// Gets the command aliases (alternative names for the command).
+    /// Returns an empty set if the command has no aliases.
+    /// </summary>
+    IReadOnlySet<string> Aliases => new HashSet<string>();
+
+    /// <summary>
+    /// Gets whether this command's output can be piped to external processes.
+    /// REPL-control commands (exit, help) should return false.
+    /// </summary>
+    bool CanBePiped => true;
+
+    /// <summary>
     /// Executes the command with the given arguments.
     /// </summary>
     /// <param name="args">The arguments passed to the command (excluding the command name itself).</param>

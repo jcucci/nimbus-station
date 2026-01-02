@@ -19,10 +19,7 @@ public sealed class CosmosCommand : ICommand
     private readonly IConfigurationService _configurationService;
     private readonly ISessionService _sessionService;
 
-    private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "query"
-    };
+    private static readonly HashSet<string> _subcommands = ["query"];
 
     private static readonly JsonSerializerOptions _jsonOptions = new()
     {
