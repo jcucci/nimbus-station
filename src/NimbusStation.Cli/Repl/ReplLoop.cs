@@ -187,7 +187,7 @@ public sealed class ReplLoop
                     if (!_globalOptions.Quiet && result.Message is not null)
                         AnsiConsole.MarkupLine($"[{theme.DimColor}]{result.Message}[/]");
                     SaveHistory();
-                    return ExitCodes.Success;
+                    return result.Data is int exitCode ? exitCode : ExitCodes.Success;
                 }
 
                 if (!result.Success && result.Message is not null)
@@ -294,8 +294,9 @@ public sealed class ReplLoop
             return CommandResult.Error("Empty command");
 
         // Help and exit commands cannot be piped - they are REPL-control commands.
-        // Note: These commands are registered in CommandRegistry, but we check explicitly
-        // here to enforce this pipe restriction before command lookup occurs.
+        // Note: These commands and aliases are also registered in CommandRegistry (Program.cs),
+        // but we check explicitly here to enforce this pipe restriction before command lookup.
+        // This duplication is intentional to keep the pipe restriction simple and explicit.
         if (IsExitCommand(commandName) || IsHelpCommand(commandName))
             return CommandResult.Error($"Cannot pipe '{commandName}' command");
 
