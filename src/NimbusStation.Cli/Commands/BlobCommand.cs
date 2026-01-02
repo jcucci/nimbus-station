@@ -18,10 +18,7 @@ public sealed class BlobCommand : ICommand
     private readonly IConfigurationService _configurationService;
     private readonly ISessionService _sessionService;
 
-    private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "containers", "list", "get", "download"
-    };
+    private static readonly HashSet<string> _subcommands = ["containers", "list", "get", "download"];
 
     /// <inheritdoc/>
     public string Name => "blob";

@@ -15,10 +15,10 @@ public sealed class SessionCommand : ICommand
     private readonly ISessionStateManager _sessionStateManager;
     private readonly IConfigurationService _configurationService;
 
-    private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
-    {
+    private static readonly HashSet<string> _subcommands =
+    [
         "start", "list", "ls", "leave", "resume", "delete", "rm", "status"
-    };
+    ];
 
     /// <inheritdoc/>
     public string Name => "session";

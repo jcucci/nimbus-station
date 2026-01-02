@@ -293,25 +293,12 @@ public sealed class ReplLoop
         if (commandName is null)
             return CommandResult.Error("Empty command");
 
-        // Help and exit commands cannot be piped - they are REPL-control commands.
-        // Note: These commands and aliases are also registered in CommandRegistry (Program.cs),
-        // but we check explicitly here to enforce this pipe restriction before command lookup.
-        // This duplication is intentional to keep the pipe restriction simple and explicit.
-        if (IsExitCommand(commandName) || IsHelpCommand(commandName))
-            return CommandResult.Error($"Cannot pipe '{commandName}' command");
-
-        static bool IsExitCommand(string command) =>
-            command.Equals("exit", StringComparison.OrdinalIgnoreCase) ||
-            command.Equals("quit", StringComparison.OrdinalIgnoreCase) ||
-            command.Equals("q", StringComparison.OrdinalIgnoreCase);
-
-        static bool IsHelpCommand(string command) =>
-            command.Equals("help", StringComparison.OrdinalIgnoreCase) ||
-            command.Equals("?", StringComparison.OrdinalIgnoreCase);
-
         var command = _commandRegistry.GetCommand(commandName);
         if (command is null)
             return CommandResult.Error($"Unknown command: {commandName}");
+
+        if (!command.CanBePiped)
+            return CommandResult.Error($"Cannot pipe '{commandName}' command");
 
         var args = InputParser.GetArguments(tokens);
         var context = new CommandContext(_sessionStateManager, outputWriter, _globalOptions);

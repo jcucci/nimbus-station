@@ -13,10 +13,7 @@ public sealed class AuthCommand : ICommand
     private readonly IAzureAuthService _authService;
     private readonly IConfigurationService _configurationService;
 
-    private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "status", "login"
-    };
+    private static readonly HashSet<string> _subcommands = ["status", "login"];
 
     /// <inheritdoc/>
     public string Name => "auth";

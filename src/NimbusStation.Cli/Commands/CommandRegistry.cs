@@ -7,21 +7,54 @@ namespace NimbusStation.Cli.Commands;
 /// </summary>
 public sealed class CommandRegistry
 {
-    private readonly Dictionary<string, ICommand> _commands = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, string> _aliases = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, ICommand> _commands = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _aliases = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// Registers a command with the registry.
+    /// Registers a command with the registry, including any aliases declared by the command.
     /// </summary>
     /// <param name="command">The command to register.</param>
-    public void Register(ICommand command) => _commands[command.Name] = command;
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the command name or any of its aliases conflict with existing commands or aliases.
+    /// </exception>
+    public void Register(ICommand command)
+    {
+        if (_commands.ContainsKey(command.Name))
+            throw new InvalidOperationException($"Command '{command.Name}' is already registered.");
+
+        if (_aliases.ContainsKey(command.Name))
+            throw new InvalidOperationException($"Command name '{command.Name}' conflicts with existing alias.");
+
+        _commands[command.Name] = command;
+
+        foreach (var alias in command.Aliases)
+        {
+            if (_commands.ContainsKey(alias))
+                throw new InvalidOperationException($"Alias '{alias}' conflicts with existing command '{alias}'.");
+            if (_aliases.ContainsKey(alias))
+                throw new InvalidOperationException($"Alias '{alias}' is already registered for command '{_aliases[alias]}'.");
+
+            _aliases[alias] = command.Name;
+        }
+    }
 
     /// <summary>
     /// Registers an alias for a command.
     /// </summary>
     /// <param name="alias">The alias name.</param>
     /// <param name="commandName">The target command name.</param>
-    public void RegisterAlias(string alias, string commandName) => _aliases[alias] = commandName;
+    /// <exception cref="InvalidOperationException">
+    /// Thrown when the alias conflicts with an existing command or alias.
+    /// </exception>
+    public void RegisterAlias(string alias, string commandName)
+    {
+        if (_commands.ContainsKey(alias))
+            throw new InvalidOperationException($"Alias '{alias}' conflicts with existing command '{alias}'.");
+        if (_aliases.ContainsKey(alias))
+            throw new InvalidOperationException($"Alias '{alias}' is already registered for command '{_aliases[alias]}'.");
+
+        _aliases[alias] = commandName;
+    }
 
     /// <summary>
     /// Gets a command by name or alias.

@@ -118,10 +118,7 @@ public static class Program
             registry.Register(sp.GetRequiredService<CosmosCommand>());
             registry.Register(sp.GetRequiredService<BlobCommand>());
             registry.Register(sp.GetRequiredService<HelpCommand>());
-            registry.RegisterAlias("?", "help");
             registry.Register(sp.GetRequiredService<ExitCommand>());
-            registry.RegisterAlias("quit", "exit");
-            registry.RegisterAlias("q", "exit");
             return registry;
         });
 

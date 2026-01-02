@@ -25,6 +25,12 @@ public sealed class HelpCommand : ICommand
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands.Value;
 
+    /// <inheritdoc/>
+    public IReadOnlySet<string> Aliases { get; } = new HashSet<string> { "?" };
+
+    /// <inheritdoc/>
+    public bool CanBePiped => false;
+
     /// <summary>
     /// Initializes a new instance of the <see cref="HelpCommand"/> class.
     /// </summary>

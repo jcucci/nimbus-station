@@ -13,10 +13,7 @@ public sealed class UseCommand : ICommand
     private readonly ISessionStateManager _sessionStateManager;
     private readonly IConfigurationService _configurationService;
 
-    private static readonly HashSet<string> _subcommands = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "cosmos", "blob", "storage", "clear"
-    };
+    private static readonly HashSet<string> _subcommands = ["cosmos", "blob", "storage", "clear"];
 
     /// <inheritdoc/>
     public string Name => "use";
