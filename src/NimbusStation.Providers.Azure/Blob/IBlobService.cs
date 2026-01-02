@@ -20,11 +20,13 @@ public interface IBlobService
     /// </summary>
     /// <param name="blobAliasName">The name of the configured blob alias.</param>
     /// <param name="prefix">Optional prefix to filter blobs.</param>
+    /// <param name="maxResults">Maximum number of results to return. Null for no limit.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The list of blobs.</returns>
     Task<BlobListResult> ListBlobsAsync(
         string blobAliasName,
         string? prefix = null,
+        int? maxResults = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -1,6 +1,7 @@
 using NimbusStation.Cli.Output;
 using NimbusStation.Core.Commands;
 using NimbusStation.Core.Errors;
+using NimbusStation.Core.Formatting;
 using NimbusStation.Core.Session;
 using NimbusStation.Infrastructure.Configuration;
 using NimbusStation.Providers.Azure.Blob;
@@ -18,7 +19,7 @@ public sealed class BlobCommand : ICommand
     private readonly IConfigurationService _configurationService;
     private readonly ISessionService _sessionService;
 
-    private static readonly HashSet<string> _subcommands = ["containers", "list", "get", "download"];
+    private static readonly HashSet<string> _subcommands = ["containers", "list", "get", "download", "search"];
 
     /// <inheritdoc/>
     public string Name => "blob";
@@ -27,7 +28,7 @@ public sealed class BlobCommand : ICommand
     public string Description => "Azure Blob Storage operations";
 
     /// <inheritdoc/>
-    public string Usage => "blob [containers | list [prefix] | get <path> | download <path>]";
+    public string Usage => "blob [containers | list [prefix] | get <path> | download <path> | search [prefix] [--download]]";
 
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands;
@@ -60,7 +61,8 @@ public sealed class BlobCommand : ICommand
             "list" => await HandleListAsync(subArgs, context, cancellationToken),
             "get" => await HandleGetAsync(subArgs, context, cancellationToken),
             "download" => await HandleDownloadAsync(subArgs, context, cancellationToken),
-            _ => CommandResult.Error($"Unknown subcommand '{args[0]}'. Available: containers, list, get, download")
+            "search" => await HandleSearchAsync(subArgs, context, cancellationToken),
+            _ => CommandResult.Error($"Unknown subcommand '{args[0]}'. Available: containers, list, get, download, search")
         };
     }
 
@@ -127,7 +129,7 @@ public sealed class BlobCommand : ICommand
         {
             var result = await spinner.RunWithSpinnerAsync(
                 "Loading blobs...",
-                () => _blobService.ListBlobsAsync(activeAlias, prefix, cancellationToken));
+                () => _blobService.ListBlobsAsync(activeAlias, prefix, maxResults: null, cancellationToken));
 
             var table = new Table();
             table.AddColumn(new TableColumn("[bold]Name[/]").LeftAligned());
@@ -250,18 +252,39 @@ public sealed class BlobCommand : ICommand
         }
     }
 
-    private static string FormatSize(long bytes)
+    private async Task<CommandResult> HandleSearchAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
     {
-        string[] suffixes = ["B", "KB", "MB", "GB", "TB"];
-        int suffixIndex = 0;
-        double size = bytes;
+        var activeAlias = context.CurrentSession?.ActiveContext?.ActiveBlobAlias;
+        if (string.IsNullOrEmpty(activeAlias))
+            return CommandResult.Error("No active blob context. Use 'use blob <alias>' first.");
 
-        while (size >= 1024 && suffixIndex < suffixes.Length - 1)
+        var aliasConfig = _configurationService.GetBlobAlias(activeAlias);
+        if (aliasConfig is null)
+            return CommandResult.Error($"Blob alias '{activeAlias}' not found in config.");
+
+        // Check for interactive terminal
+        if (!AnsiConsole.Profile.Capabilities.Interactive)
+            return CommandResult.Error("Search requires an interactive terminal.");
+
+        // Parse args: [prefix] [--download]
+        var downloadMode = args.Contains("--download", StringComparer.OrdinalIgnoreCase);
+        var prefix = args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal));
+
+        var theme = _configurationService.GetTheme();
+        var searchService = new BlobSearchService(_blobService);
+        var handler = new BlobSearchHandler(searchService, _blobService, _sessionService, theme);
+
+        try
         {
-            size /= 1024;
-            suffixIndex++;
+            return await handler.RunAsync(activeAlias, prefix, downloadMode, context, cancellationToken);
         }
-
-        return suffixIndex == 0 ? $"{size:F0} {suffixes[suffixIndex]}" : $"{size:F1} {suffixes[suffixIndex]}";
+        catch (InvalidOperationException ex)
+        {
+            var error = AzureErrorMapper.FromCliError(ex.Message, activeAlias);
+            ErrorFormatter.WriteError(error, theme.ErrorColor, context.Options.Quiet);
+            return CommandResult.Error(error.Message);
+        }
     }
+
+    private static string FormatSize(long bytes) => SizeFormatter.Format(bytes);
 }
