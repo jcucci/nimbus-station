@@ -50,7 +50,10 @@ public sealed partial class BlobService : IBlobService
 
     /// <inheritdoc/>
     public async Task<BlobListResult> ListBlobsAsync(
-        string blobAliasName, string? prefix = null, CancellationToken cancellationToken = default)
+        string blobAliasName,
+        string? prefix = null,
+        int? maxResults = null,
+        CancellationToken cancellationToken = default)
     {
         var aliasConfig = _configurationService.GetBlobAlias(blobAliasName)
             ?? throw new InvalidOperationException($"Blob alias '{blobAliasName}' not found in config.");
@@ -59,12 +62,17 @@ public sealed partial class BlobService : IBlobService
         if (!string.IsNullOrWhiteSpace(prefix))
             arguments += $" --prefix {QuoteBlobName(prefix)}";
 
+        // Request one extra to detect truncation
+        var requestLimit = maxResults.HasValue ? maxResults.Value + 1 : (int?)null;
+        if (requestLimit.HasValue)
+            arguments += $" --num-results {requestLimit.Value}";
+
         var result = await _cliExecutor.ExecuteJsonAsync<List<AzureBlobResponse>>(arguments, cancellationToken: cancellationToken);
 
         if (!result.Success)
             throw new InvalidOperationException(result.ErrorMessage ?? "Failed to list blobs.");
 
-        var blobs = result.Data?
+        var allBlobs = result.Data?
             .Select(b => new BlobInfo(
                 b.Name,
                 b.Properties?.ContentLength ?? 0,
@@ -72,7 +80,11 @@ public sealed partial class BlobService : IBlobService
                 b.Properties?.ContentType ?? "application/octet-stream"))
             .ToList() ?? [];
 
-        return new BlobListResult(blobs);
+        // Check if results were truncated (we got more than maxResults)
+        var isTruncated = maxResults.HasValue && allBlobs.Count > maxResults.Value;
+        var blobs = isTruncated ? allBlobs.Take(maxResults!.Value).ToList() : allBlobs;
+
+        return new BlobListResult(blobs, isTruncated);
     }
 
     /// <inheritdoc/>
