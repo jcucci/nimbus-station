@@ -8,8 +8,10 @@
 * **Description:** A cloud-agnostic, session-based REPL workbench for cloud
   investigation and system stabilization.
 * **Core Philosophy:** "Contextual Investigation." Anchors all operations to a
-  persistent session (Jira Ticket ID), maintaining state, history, and a local
+  persistent session (GitHub Issue ID), maintaining state, history, and a local
   directory for artifacts.
+* **Issue Tracking:** GitHub Issues only. All tickets/issues reside in the
+  associated `nimbus-station` GitHub repository.
 
 ## 2. Technical Stack & Constraints
 

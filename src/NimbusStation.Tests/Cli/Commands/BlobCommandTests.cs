@@ -276,6 +276,31 @@ public sealed class BlobCommandTests
         Assert.Contains("list", _command.Subcommands);
         Assert.Contains("get", _command.Subcommands);
         Assert.Contains("download", _command.Subcommands);
+        Assert.Contains("search", _command.Subcommands);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SearchWithoutBlobContext_ReturnsError()
+    {
+        var context = CreateContextWithSession();
+
+        var result = await _command.ExecuteAsync(["search"], context);
+
+        Assert.False(result.Success);
+        Assert.Contains("No active blob context", result.Message);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_SearchWithMissingAlias_ReturnsError()
+    {
+        _sessionStateManager.ActivateSession(Session.Create("TEST-123")
+            .WithContext(new SessionContext(null, "missing-alias", null)));
+        var context = new CommandContext(_sessionStateManager, _outputWriter);
+
+        var result = await _command.ExecuteAsync(["search"], context);
+
+        Assert.False(result.Success);
+        Assert.Contains("not found in config", result.Message);
     }
 
     private void SetupValidStorageContext()

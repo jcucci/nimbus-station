@@ -14,12 +14,12 @@ public sealed class MockBlobService : IBlobService
     private Exception? _nextException;
 
     private readonly List<string> _listContainersCalls = [];
-    private readonly List<(string AliasName, string? Prefix)> _listBlobsCalls = [];
+    private readonly List<(string AliasName, string? Prefix, int? MaxResults)> _listBlobsCalls = [];
     private readonly List<(string AliasName, string BlobName)> _getContentCalls = [];
     private readonly List<(string AliasName, string BlobName, string DestDir)> _downloadCalls = [];
 
     public IReadOnlyList<string> ListContainersCalls => _listContainersCalls;
-    public IReadOnlyList<(string AliasName, string? Prefix)> ListBlobsCalls => _listBlobsCalls;
+    public IReadOnlyList<(string AliasName, string? Prefix, int? MaxResults)> ListBlobsCalls => _listBlobsCalls;
     public IReadOnlyList<(string AliasName, string BlobName)> GetContentCalls => _getContentCalls;
     public IReadOnlyList<(string AliasName, string BlobName, string DestDir)> DownloadCalls => _downloadCalls;
 
@@ -75,9 +75,9 @@ public sealed class MockBlobService : IBlobService
         return Task.FromResult(_nextContainerResult ?? CreateEmptyContainerResult());
     }
 
-    public Task<BlobListResult> ListBlobsAsync(string blobAliasName, string? prefix = null, CancellationToken cancellationToken = default)
+    public Task<BlobListResult> ListBlobsAsync(string blobAliasName, string? prefix = null, int? maxResults = null, CancellationToken cancellationToken = default)
     {
-        _listBlobsCalls.Add((blobAliasName, prefix));
+        _listBlobsCalls.Add((blobAliasName, prefix, maxResults));
         if (_nextException is not null) throw _nextException;
         return Task.FromResult(_nextBlobListResult ?? CreateEmptyBlobResult());
     }
