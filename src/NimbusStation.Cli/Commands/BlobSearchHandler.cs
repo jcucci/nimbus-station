@@ -91,8 +91,8 @@ public sealed class BlobSearchHandler
                 // Handle selection
                 var (shouldContinue, newPrefix) = await HandleSelectionAsync(
                     selection,
+                    searchResult,
                     aliasName,
-                    currentPrefix,
                     downloadMode,
                     context,
                     cancellationToken);
@@ -188,14 +188,13 @@ public sealed class BlobSearchHandler
 
     private async Task<(bool ShouldContinue, string NewPrefix)> HandleSelectionAsync(
         string selection,
+        SearchResult searchResult,
         string aliasName,
-        string currentPrefix,
         bool downloadMode,
         CommandContext context,
         CancellationToken cancellationToken)
     {
-        // Re-fetch search result to match items (needed for parsing)
-        var searchResult = await _searchService.SearchAsync(aliasName, currentPrefix, cancellationToken: cancellationToken);
+        var currentPrefix = searchResult.CurrentPrefix;
         var (sentinel, item) = ParseSelection(selection, searchResult);
 
         switch (sentinel)

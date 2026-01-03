@@ -24,7 +24,6 @@ public sealed class BlobSearchServiceTests
 
         Assert.Empty(result.Items);
         Assert.Equal(string.Empty, result.CurrentPrefix);
-        Assert.Equal(0, result.TotalCount);
         Assert.False(result.IsTruncated);
     }
 

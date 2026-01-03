@@ -61,7 +61,6 @@ public sealed class BlobSearchService
         return new SearchResult(
             Items: items,
             CurrentPrefix: prefix ?? string.Empty,
-            TotalCount: items.Count,
             IsTruncated: blobListResult.IsTruncated);
     }
 }
