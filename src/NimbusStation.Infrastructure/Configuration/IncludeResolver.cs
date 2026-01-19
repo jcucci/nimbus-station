@@ -18,9 +18,11 @@ public sealed class IncludeResolver
         if (includePath.StartsWith('~'))
         {
             var homeDir = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            var relativePart = includePath.Length > 1 && includePath[1] == Path.DirectorySeparatorChar
-                ? includePath[2..]
-                : includePath[1..];
+            var startIndex = 1;
+            // Handle both forward slash and platform-specific separator for cross-platform compatibility
+            if (includePath.Length > 1 && (includePath[1] == '/' || includePath[1] == Path.DirectorySeparatorChar))
+                startIndex = 2;
+            var relativePart = includePath[startIndex..];
             return Path.GetFullPath(Path.Combine(homeDir, relativePart));
         }
 

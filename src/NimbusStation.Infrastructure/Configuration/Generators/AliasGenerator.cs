@@ -65,7 +65,8 @@ public sealed class AliasGenerator
                 if (TemplateSubstitutor.HasUnresolvedVariables(aliasName) ||
                     TemplateSubstitutor.HasUnresolvedVariables(endpoint) ||
                     TemplateSubstitutor.HasUnresolvedVariables(database) ||
-                    TemplateSubstitutor.HasUnresolvedVariables(container))
+                    TemplateSubstitutor.HasUnresolvedVariables(container) ||
+                    (keyEnv is not null && TemplateSubstitutor.HasUnresolvedVariables(keyEnv)))
                 {
                     _logger?.LogWarning(
                         "Skipping Cosmos alias '{AliasName}': unresolved variables in template",
@@ -138,9 +139,13 @@ public sealed class AliasGenerator
     /// Generates the Cartesian product of all dimension entries.
     /// Each combination is a dictionary of variable names to their values.
     /// </summary>
-    private static List<Dictionary<string, string>> GenerateCombinations(
+    /// <remarks>
+    /// Limited to 10,000 combinations to prevent resource exhaustion from misconfiguration.
+    /// </remarks>
+    private List<Dictionary<string, string>> GenerateCombinations(
         Dictionary<string, Dictionary<string, GeneratorDimensionEntry>> dimensions)
     {
+        const int MaxCombinations = 10_000;
         var result = new List<Dictionary<string, string>> { new() };
 
         foreach (var dimension in dimensions)
@@ -152,12 +157,20 @@ public sealed class AliasGenerator
             {
                 foreach (var entry in dimension.Value)
                 {
+                    if (newResult.Count >= MaxCombinations)
+                    {
+                        _logger?.LogWarning(
+                            "Generator combination limit ({MaxCombinations}) exceeded, truncating alias generation",
+                            MaxCombinations);
+                        return newResult;
+                    }
+
                     var combined = new Dictionary<string, string>(existing)
                     {
                         [dimensionName] = entry.Key
                     };
 
-                    // Add all properties from the entry with prefixed names
+                    // Add all properties from the entry (later dimensions may override earlier ones with same key)
                     foreach (var prop in entry.Value.Properties)
                     {
                         combined[prop.Key] = prop.Value;

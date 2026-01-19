@@ -166,6 +166,10 @@ public sealed class ConfigurationService : IConfigurationService
         {
             _logger.LogError(ex, "Failed to parse TOML configuration at {ConfigPath}", filePath);
         }
+        catch (IOException ex)
+        {
+            _logger.LogError(ex, "Failed to read configuration file at {ConfigPath}", filePath);
+        }
     }
 
     private List<string> ParseIncludes(TomlTable tomlTable)
