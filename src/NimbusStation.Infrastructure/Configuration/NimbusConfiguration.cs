@@ -1,3 +1,5 @@
+using NimbusStation.Infrastructure.Configuration.Generators;
+
 namespace NimbusStation.Infrastructure.Configuration;
 
 /// <summary>
@@ -29,4 +31,14 @@ public sealed class NimbusConfiguration
     /// Gets or sets the Storage account aliases (for account-level operations like container listing).
     /// </summary>
     public Dictionary<string, StorageAliasConfig> StorageAliases { get; set; } = [];
+
+    /// <summary>
+    /// Gets or sets the include configuration for loading additional config files.
+    /// </summary>
+    public IncludeConfig? Include { get; set; }
+
+    /// <summary>
+    /// Gets or sets the generators configuration for template-based alias generation.
+    /// </summary>
+    public GeneratorsConfig? Generators { get; set; }
 }

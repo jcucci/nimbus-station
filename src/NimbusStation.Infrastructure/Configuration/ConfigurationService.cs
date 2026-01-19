@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using NimbusStation.Infrastructure.Configuration.Generators;
 using Tomlyn;
 using Tomlyn.Model;
 
@@ -100,23 +101,90 @@ public sealed class ConfigurationService : IConfigurationService
             return config;
         }
 
-        try
-        {
-            var tomlContent = await File.ReadAllTextAsync(_configPath, cancellationToken);
-            var tomlTable = Toml.ToModel(tomlContent);
-
-            ParseTheme(tomlTable, config);
-            ParseCosmosAliases(tomlTable, config);
-            ParseBlobAliases(tomlTable, config);
-            ParseStorageAliases(tomlTable, config);
-        }
-        catch (TomlException ex)
-        {
-            _logger.LogError(ex, "Failed to parse TOML configuration at {ConfigPath}", _configPath);
-        }
+        var includeResolver = new IncludeResolver();
+        await LoadConfigurationRecursiveAsync(_configPath, config, includeResolver, cancellationToken);
 
         _cachedConfiguration = config;
         return config;
+    }
+
+    private async Task LoadConfigurationRecursiveAsync(
+        string filePath,
+        NimbusConfiguration config,
+        IncludeResolver includeResolver,
+        CancellationToken cancellationToken)
+    {
+        var resolvedPath = Path.GetFullPath(filePath);
+
+        if (!includeResolver.TryMarkVisited(resolvedPath))
+        {
+            _logger.LogWarning("Circular include detected for {FilePath}, skipping", filePath);
+            return;
+        }
+
+        if (!File.Exists(resolvedPath))
+        {
+            _logger.LogWarning("Include file not found: {FilePath}", filePath);
+            return;
+        }
+
+        try
+        {
+            var tomlContent = await File.ReadAllTextAsync(resolvedPath, cancellationToken);
+            var tomlTable = Toml.ToModel(tomlContent);
+
+            // Parse includes first and load them (they become the base that this file overrides)
+            var includeFiles = ParseIncludes(tomlTable);
+            foreach (var includeFile in includeFiles)
+            {
+                var includePath = includeResolver.ResolvePath(includeFile, resolvedPath);
+                await LoadConfigurationRecursiveAsync(includePath, config, includeResolver, cancellationToken);
+            }
+
+            // Parse current file's configuration (overrides included files)
+            var fileConfig = new NimbusConfiguration();
+            ParseTheme(tomlTable, fileConfig);
+            ParseCosmosAliases(tomlTable, fileConfig);
+            ParseBlobAliases(tomlTable, fileConfig);
+            ParseStorageAliases(tomlTable, fileConfig);
+
+            // Parse generators and generate aliases
+            var generators = ParseGenerators(tomlTable);
+            if (generators is not null)
+            {
+                var aliasGenerator = new AliasGenerator(_logger);
+                var generatedConfig = aliasGenerator.GenerateAliases(generators);
+
+                // Merge generated aliases first (lowest priority)
+                ConfigurationMerger.Merge(config, generatedConfig);
+            }
+
+            // Merge this file's explicit config (overrides generated and included)
+            ConfigurationMerger.Merge(config, fileConfig);
+        }
+        catch (TomlException ex)
+        {
+            _logger.LogError(ex, "Failed to parse TOML configuration at {ConfigPath}", filePath);
+        }
+    }
+
+    private List<string> ParseIncludes(TomlTable tomlTable)
+    {
+        var result = new List<string>();
+
+        if (!tomlTable.TryGetValue("include", out var includeObj) || includeObj is not TomlTable includeTable)
+            return result;
+
+        if (includeTable.TryGetValue("files", out var filesObj) && filesObj is TomlArray filesArray)
+        {
+            foreach (var file in filesArray)
+            {
+                if (file is string filePath)
+                    result.Add(filePath);
+            }
+        }
+
+        return result;
     }
 
     /// <inheritdoc/>
@@ -382,8 +450,108 @@ public sealed class ConfigurationService : IConfigurationService
         }
     }
 
-    private static string? GetStringValue(TomlTable table, string key)
+    private GeneratorsConfig? ParseGenerators(TomlTable tomlTable)
     {
-        return table.TryGetValue(key, out var value) && value is string str ? str : null;
+        if (!tomlTable.TryGetValue("generators", out var generatorsObj) || generatorsObj is not TomlTable generatorsTable)
+            return null;
+
+        var config = new GeneratorsConfig();
+
+        // Parse dimensions (kingdoms, backends, etc.)
+        foreach (var (key, value) in generatorsTable)
+        {
+            if (value is not TomlTable dimensionTable)
+                continue;
+
+            // Check if this is a generator config (cosmos, blob, storage) or a dimension
+            if (key == "cosmos")
+            {
+                config.Cosmos = ParseCosmosGenerator(dimensionTable);
+            }
+            else if (key == "blob")
+            {
+                config.Blob = ParseBlobGenerator(dimensionTable);
+            }
+            else if (key == "storage")
+            {
+                config.Storage = ParseStorageGenerator(dimensionTable);
+            }
+            else
+            {
+                // It's a dimension
+                config.Dimensions[key] = ParseDimension(dimensionTable);
+            }
+        }
+
+        return config;
     }
+
+    private Dictionary<string, GeneratorDimensionEntry> ParseDimension(TomlTable dimensionTable)
+    {
+        var entries = new Dictionary<string, GeneratorDimensionEntry>();
+
+        foreach (var (entryName, entryValue) in dimensionTable)
+        {
+            if (entryValue is not TomlTable entryTable)
+                continue;
+
+            var entry = new GeneratorDimensionEntry { Name = entryName };
+
+            foreach (var (propKey, propValue) in entryTable)
+            {
+                if (propValue is string strValue)
+                    entry.Properties[propKey] = strValue;
+            }
+
+            entries[entryName] = entry;
+        }
+
+        return entries;
+    }
+
+    private CosmosGeneratorConfig ParseCosmosGenerator(TomlTable table)
+    {
+        var config = new CosmosGeneratorConfig
+        {
+            Enabled = GetBoolValue(table, "enabled") ?? false,
+            AliasNameTemplate = GetStringValue(table, "alias_name_template") ?? string.Empty,
+            EndpointTemplate = GetStringValue(table, "endpoint_template") ?? string.Empty,
+            DatabaseTemplate = GetStringValue(table, "database_template") ?? string.Empty,
+            KeyEnvTemplate = GetStringValue(table, "key_env_template")
+        };
+
+        if (table.TryGetValue("types", out var typesObj) && typesObj is TomlTable typesTable)
+        {
+            foreach (var (typeName, containerValue) in typesTable)
+            {
+                if (containerValue is string containerName)
+                    config.Types[typeName] = containerName;
+            }
+        }
+
+        return config;
+    }
+
+    private BlobGeneratorConfig ParseBlobGenerator(TomlTable table) =>
+        new()
+        {
+            Enabled = GetBoolValue(table, "enabled") ?? false,
+            AliasNameTemplate = GetStringValue(table, "alias_name_template") ?? string.Empty,
+            AccountTemplate = GetStringValue(table, "account_template") ?? string.Empty,
+            ContainerTemplate = GetStringValue(table, "container_template") ?? string.Empty
+        };
+
+    private StorageGeneratorConfig ParseStorageGenerator(TomlTable table) =>
+        new()
+        {
+            Enabled = GetBoolValue(table, "enabled") ?? false,
+            AliasNameTemplate = GetStringValue(table, "alias_name_template") ?? string.Empty,
+            AccountTemplate = GetStringValue(table, "account_template") ?? string.Empty
+        };
+
+    private static string? GetStringValue(TomlTable table, string key) =>
+        table.TryGetValue(key, out var value) && value is string str ? str : null;
+
+    private static bool? GetBoolValue(TomlTable table, string key) =>
+        table.TryGetValue(key, out var value) && value is bool b ? b : null;
 }
