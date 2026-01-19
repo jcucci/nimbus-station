@@ -29,8 +29,14 @@ public sealed class CosmosGeneratorConfig
     public string DatabaseTemplate { get; set; } = string.Empty;
 
     /// <summary>
-    /// Gets or sets the container/type mappings for Cosmos aliases.
-    /// Keys are type names (e.g., "event", "view"), values are container names.
+    /// Gets or sets the template for the container name.
+    /// Example: "{container_base}-{type_suffix}"
+    /// </summary>
+    public string ContainerTemplate { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Gets or sets the type mappings for Cosmos aliases.
+    /// Keys are type names (e.g., "event", "data"), values are suffixes used in container names.
     /// </summary>
     public Dictionary<string, string> Types { get; set; } = [];
 

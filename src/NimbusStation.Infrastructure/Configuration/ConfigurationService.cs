@@ -517,6 +517,7 @@ public sealed class ConfigurationService : IConfigurationService
             AliasNameTemplate = GetStringValue(table, "alias_name_template") ?? string.Empty,
             EndpointTemplate = GetStringValue(table, "endpoint_template") ?? string.Empty,
             DatabaseTemplate = GetStringValue(table, "database_template") ?? string.Empty,
+            ContainerTemplate = GetStringValue(table, "container_template") ?? string.Empty,
             KeyEnvTemplate = GetStringValue(table, "key_env_template")
         };
 

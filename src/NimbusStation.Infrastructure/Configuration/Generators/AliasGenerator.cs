@@ -49,20 +49,23 @@ public sealed class AliasGenerator
                 var variables = new Dictionary<string, string>(combo)
                 {
                     ["type"] = typeEntry.Key,
-                    ["container"] = typeEntry.Value
+                    ["type_suffix"] = typeEntry.Value
                 };
 
                 var aliasName = TemplateSubstitutor.Substitute(cosmos.AliasNameTemplate, variables);
                 var endpoint = TemplateSubstitutor.Substitute(cosmos.EndpointTemplate, variables);
                 var database = TemplateSubstitutor.Substitute(cosmos.DatabaseTemplate, variables);
-                var container = typeEntry.Value;
+                var container = !string.IsNullOrEmpty(cosmos.ContainerTemplate)
+                    ? TemplateSubstitutor.Substitute(cosmos.ContainerTemplate, variables)
+                    : typeEntry.Value;
                 var keyEnv = cosmos.KeyEnvTemplate is not null
                     ? TemplateSubstitutor.Substitute(cosmos.KeyEnvTemplate, variables)
                     : null;
 
                 if (TemplateSubstitutor.HasUnresolvedVariables(aliasName) ||
                     TemplateSubstitutor.HasUnresolvedVariables(endpoint) ||
-                    TemplateSubstitutor.HasUnresolvedVariables(database))
+                    TemplateSubstitutor.HasUnresolvedVariables(database) ||
+                    TemplateSubstitutor.HasUnresolvedVariables(container))
                 {
                     _logger?.LogWarning(
                         "Skipping Cosmos alias '{AliasName}': unresolved variables in template",
