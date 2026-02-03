@@ -1,22 +1,28 @@
 using Microsoft.Extensions.Logging;
 using NimbusStation.Infrastructure.Configuration;
+using NimbusStation.Infrastructure.Configuration.Generators;
 
 namespace NimbusStation.Tests.Infrastructure.Configuration;
 
 public sealed class ConfigurationServiceTests : IDisposable
 {
     private readonly string _tempDirectory;
+    private readonly LoggerFactory _loggerFactory;
     private readonly ILogger<ConfigurationService> _logger;
+    private readonly GeneratorEngine _generatorEngine;
 
     public ConfigurationServiceTests()
     {
         _tempDirectory = Path.Combine(Path.GetTempPath(), $"nimbus-test-{Guid.NewGuid()}");
         Directory.CreateDirectory(_tempDirectory);
-        _logger = new LoggerFactory().CreateLogger<ConfigurationService>();
+        _loggerFactory = new LoggerFactory();
+        _logger = _loggerFactory.CreateLogger<ConfigurationService>();
+        _generatorEngine = new GeneratorEngine(_loggerFactory.CreateLogger<GeneratorEngine>());
     }
 
     public void Dispose()
     {
+        _loggerFactory.Dispose();
         if (Directory.Exists(_tempDirectory))
         {
             Directory.Delete(_tempDirectory, recursive: true);
@@ -38,7 +44,7 @@ public sealed class ConfigurationServiceTests : IDisposable
     {
         // Arrange
         var configPath = GetConfigPath();
-        var service = new ConfigurationService(_logger, configPath);
+        var service = new ConfigurationService(_logger, _generatorEngine, configPath);
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -69,7 +75,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -102,7 +108,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -127,7 +133,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -153,7 +159,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -176,7 +182,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
         await service.LoadConfigurationAsync();
 
         // Act
@@ -200,7 +206,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
         await service.LoadConfigurationAsync();
 
         // Act
@@ -221,7 +227,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
         await service.LoadConfigurationAsync();
 
         // Act
@@ -244,7 +250,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
         await service.LoadConfigurationAsync();
 
         // Act
@@ -265,7 +271,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
         await service.LoadConfigurationAsync();
 
         // Act
@@ -279,7 +285,7 @@ public sealed class ConfigurationServiceTests : IDisposable
     public async Task GetTheme_BeforeLoad_ReturnsDefaults()
     {
         // Arrange
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
 
         // Act
         var theme = service.GetTheme();
@@ -301,7 +307,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -324,7 +330,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, GetConfigPath());
+        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
 
         // Act
         var config1 = await service.LoadConfigurationAsync();
