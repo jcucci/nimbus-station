@@ -1,5 +1,4 @@
 using Microsoft.Extensions.Logging;
-using NimbusStation.Infrastructure.Configuration;
 using NimbusStation.Infrastructure.Configuration.Generators;
 
 namespace NimbusStation.Tests.Infrastructure.Configuration.Generators;

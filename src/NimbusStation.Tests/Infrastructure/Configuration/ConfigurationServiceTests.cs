@@ -1,6 +1,5 @@
 using Microsoft.Extensions.Logging;
 using NimbusStation.Infrastructure.Configuration;
-using NimbusStation.Infrastructure.Configuration.Generators;
 
 namespace NimbusStation.Tests.Infrastructure.Configuration;
 
@@ -9,7 +8,6 @@ public sealed class ConfigurationServiceTests : IDisposable
     private readonly string _tempDirectory;
     private readonly LoggerFactory _loggerFactory;
     private readonly ILogger<ConfigurationService> _logger;
-    private readonly GeneratorEngine _generatorEngine;
 
     public ConfigurationServiceTests()
     {
@@ -17,7 +15,6 @@ public sealed class ConfigurationServiceTests : IDisposable
         Directory.CreateDirectory(_tempDirectory);
         _loggerFactory = new LoggerFactory();
         _logger = _loggerFactory.CreateLogger<ConfigurationService>();
-        _generatorEngine = new GeneratorEngine(_loggerFactory.CreateLogger<GeneratorEngine>());
     }
 
     public void Dispose()
@@ -44,7 +41,7 @@ public sealed class ConfigurationServiceTests : IDisposable
     {
         // Arrange
         var configPath = GetConfigPath();
-        var service = new ConfigurationService(_logger, _generatorEngine, configPath);
+        var service = new ConfigurationService(_logger, configPath);
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -75,7 +72,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -108,7 +105,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -133,7 +130,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -159,7 +156,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -182,7 +179,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
         await service.LoadConfigurationAsync();
 
         // Act
@@ -206,7 +203,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
         await service.LoadConfigurationAsync();
 
         // Act
@@ -227,7 +224,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
         await service.LoadConfigurationAsync();
 
         // Act
@@ -250,7 +247,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
         await service.LoadConfigurationAsync();
 
         // Act
@@ -271,7 +268,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
         await service.LoadConfigurationAsync();
 
         // Act
@@ -285,7 +282,7 @@ public sealed class ConfigurationServiceTests : IDisposable
     public async Task GetTheme_BeforeLoad_ReturnsDefaults()
     {
         // Arrange
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
 
         // Act
         var theme = service.GetTheme();
@@ -307,7 +304,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
 
         // Act
         var config = await service.LoadConfigurationAsync();
@@ -330,7 +327,7 @@ public sealed class ConfigurationServiceTests : IDisposable
             """;
 
         await WriteConfigAsync(toml);
-        var service = new ConfigurationService(_logger, _generatorEngine, GetConfigPath());
+        var service = new ConfigurationService(_logger, GetConfigPath());
 
         // Act
         var config1 = await service.LoadConfigurationAsync();
@@ -343,5 +340,250 @@ public sealed class ConfigurationServiceTests : IDisposable
         // Assert - should return cached config, not re-read file
         Assert.Same(config1, config2);
         Assert.Equal("red", config2.Theme.PromptColor);
+    }
+
+    [Fact]
+    public async Task LoadConfigurationAsync_WithInclude_MergesIncludedFile()
+    {
+        // Arrange - create included file
+        const string includedToml =
+            """
+            [aliases.cosmos]
+            included-alias = { endpoint = "https://included.documents.azure.com:443/", database = "IncDb", container = "IncContainer" }
+            """;
+        await WriteConfigAsync(includedToml, "included.toml");
+
+        // Create main config with include
+        const string mainToml =
+            """
+            [include]
+            files = ["included.toml"]
+
+            [aliases.cosmos]
+            main-alias = { endpoint = "https://main.documents.azure.com:443/", database = "MainDb", container = "MainContainer" }
+            """;
+        await WriteConfigAsync(mainToml);
+
+        var service = new ConfigurationService(_logger, GetConfigPath());
+
+        // Act
+        var config = await service.LoadConfigurationAsync();
+
+        // Assert - should have both aliases
+        Assert.Equal(2, config.CosmosAliases.Count);
+        Assert.True(config.CosmosAliases.ContainsKey("included-alias"));
+        Assert.True(config.CosmosAliases.ContainsKey("main-alias"));
+    }
+
+    [Fact]
+    public async Task LoadConfigurationAsync_MainConfigOverridesIncluded()
+    {
+        // Arrange - create included file with an alias
+        const string includedToml =
+            """
+            [aliases.cosmos]
+            shared-alias = { endpoint = "https://included.documents.azure.com:443/", database = "IncDb", container = "IncContainer" }
+            """;
+        await WriteConfigAsync(includedToml, "included.toml");
+
+        // Create main config that overrides the alias
+        const string mainToml =
+            """
+            [include]
+            files = ["included.toml"]
+
+            [aliases.cosmos]
+            shared-alias = { endpoint = "https://main.documents.azure.com:443/", database = "MainDb", container = "MainContainer" }
+            """;
+        await WriteConfigAsync(mainToml);
+
+        var service = new ConfigurationService(_logger, GetConfigPath());
+
+        // Act
+        var config = await service.LoadConfigurationAsync();
+
+        // Assert - main config should override included
+        Assert.Single(config.CosmosAliases);
+        Assert.Equal("https://main.documents.azure.com:443/", config.CosmosAliases["shared-alias"].Endpoint);
+        Assert.Equal("MainDb", config.CosmosAliases["shared-alias"].Database);
+    }
+
+    [Fact]
+    public async Task LoadConfigurationAsync_CircularInclude_HandledGracefully()
+    {
+        // Arrange - create circular include
+        const string file1 =
+            """
+            [include]
+            files = ["file2.toml"]
+
+            [aliases.cosmos]
+            alias1 = { endpoint = "https://one.documents.azure.com:443/", database = "Db1", container = "C1" }
+            """;
+        await WriteConfigAsync(file1, "file1.toml");
+
+        const string file2 =
+            """
+            [include]
+            files = ["file1.toml"]
+
+            [aliases.cosmos]
+            alias2 = { endpoint = "https://two.documents.azure.com:443/", database = "Db2", container = "C2" }
+            """;
+        await WriteConfigAsync(file2, "file2.toml");
+
+        var service = new ConfigurationService(_logger, GetConfigPath("file1.toml"));
+
+        // Act
+        var config = await service.LoadConfigurationAsync();
+
+        // Assert - should not crash, should have aliases from both files
+        Assert.Equal(2, config.CosmosAliases.Count);
+    }
+
+    [Fact]
+    public async Task LoadConfigurationAsync_MissingIncludeFile_ContinuesWithWarning()
+    {
+        // Arrange
+        const string mainToml =
+            """
+            [include]
+            files = ["nonexistent.toml"]
+
+            [aliases.cosmos]
+            main-alias = { endpoint = "https://main.documents.azure.com:443/", database = "MainDb", container = "MainContainer" }
+            """;
+        await WriteConfigAsync(mainToml);
+
+        var service = new ConfigurationService(_logger, GetConfigPath());
+
+        // Act
+        var config = await service.LoadConfigurationAsync();
+
+        // Assert - should still load main config
+        Assert.Single(config.CosmosAliases);
+        Assert.True(config.CosmosAliases.ContainsKey("main-alias"));
+    }
+
+    [Fact]
+    public async Task LoadConfigurationAsync_WithGenerators_GeneratesAliases()
+    {
+        // Arrange
+        const string toml =
+            """
+            [generators.kingdoms]
+            ninja = { abbrev = "nja" }
+
+            [generators.backends]
+            activities = { database = "activities-db" }
+
+            [generators.cosmos]
+            enabled = true
+            alias_name_template = "{kingdoms}-{backends}-{type}"
+            endpoint_template = "https://king-{abbrev}-be.documents.azure.com:443/"
+            database_template = "{database}"
+
+            [generators.cosmos.types]
+            event = "event-store"
+            """;
+
+        await WriteConfigAsync(toml);
+        var service = new ConfigurationService(_logger, GetConfigPath());
+
+        // Act
+        var config = await service.LoadConfigurationAsync();
+
+        // Assert
+        Assert.Single(config.CosmosAliases);
+        Assert.True(config.CosmosAliases.ContainsKey("ninja-activities-event"));
+
+        var alias = config.CosmosAliases["ninja-activities-event"];
+        Assert.Equal("https://king-nja-be.documents.azure.com:443/", alias.Endpoint);
+        Assert.Equal("activities-db", alias.Database);
+        Assert.Equal("event-store", alias.Container);
+    }
+
+    [Fact]
+    public async Task LoadConfigurationAsync_ExplicitAliasOverridesGenerated()
+    {
+        // Arrange
+        const string toml =
+            """
+            [generators.kingdoms]
+            ninja = { abbrev = "nja" }
+
+            [generators.backends]
+            activities = { database = "activities-db" }
+
+            [generators.cosmos]
+            enabled = true
+            alias_name_template = "{kingdoms}-{backends}-{type}"
+            endpoint_template = "https://king-{abbrev}-be.documents.azure.com:443/"
+            database_template = "{database}"
+
+            [generators.cosmos.types]
+            event = "event-store"
+
+            [aliases.cosmos]
+            ninja-activities-event = { endpoint = "https://override.documents.azure.com:443/", database = "OverrideDb", container = "OverrideContainer" }
+            """;
+
+        await WriteConfigAsync(toml);
+        var service = new ConfigurationService(_logger, GetConfigPath());
+
+        // Act
+        var config = await service.LoadConfigurationAsync();
+
+        // Assert - explicit should override generated
+        Assert.Single(config.CosmosAliases);
+        var alias = config.CosmosAliases["ninja-activities-event"];
+        Assert.Equal("https://override.documents.azure.com:443/", alias.Endpoint);
+        Assert.Equal("OverrideDb", alias.Database);
+        Assert.Equal("OverrideContainer", alias.Container);
+    }
+
+    [Fact]
+    public async Task LoadConfigurationAsync_GeneratorsInIncludedFile_GeneratesAliases()
+    {
+        // Arrange - create generators file
+        const string generatorsToml =
+            """
+            [generators.kingdoms]
+            ninja = { abbrev = "nja" }
+
+            [generators.backends]
+            activities = { database = "activities-db" }
+
+            [generators.cosmos]
+            enabled = true
+            alias_name_template = "{kingdoms}-{backends}-{type}"
+            endpoint_template = "https://king-{abbrev}-be.documents.azure.com:443/"
+            database_template = "{database}"
+
+            [generators.cosmos.types]
+            event = "event-store"
+            """;
+        await WriteConfigAsync(generatorsToml, "generators.toml");
+
+        // Create main config with include
+        const string mainToml =
+            """
+            [include]
+            files = ["generators.toml"]
+
+            [theme]
+            prompt_color = "cyan"
+            """;
+        await WriteConfigAsync(mainToml);
+
+        var service = new ConfigurationService(_logger, GetConfigPath());
+
+        // Act
+        var config = await service.LoadConfigurationAsync();
+
+        // Assert
+        Assert.Single(config.CosmosAliases);
+        Assert.True(config.CosmosAliases.ContainsKey("ninja-activities-event"));
+        Assert.Equal("cyan", config.Theme.PromptColor);
     }
 }

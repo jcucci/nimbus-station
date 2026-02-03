@@ -1,4 +1,4 @@
-namespace NimbusStation.Infrastructure.Configuration;
+namespace NimbusStation.Infrastructure.Configuration.Generators;
 
 /// <summary>
 /// Represents a dimension entry used in alias generation.

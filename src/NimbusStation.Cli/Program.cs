@@ -11,7 +11,6 @@ using NimbusStation.Core.Session;
 using NimbusStation.Core.ShellPiping;
 using NimbusStation.Infrastructure.Aliases;
 using NimbusStation.Infrastructure.Configuration;
-using NimbusStation.Infrastructure.Configuration.Generators;
 using NimbusStation.Infrastructure.Sessions;
 using NimbusStation.Infrastructure.ShellPiping;
 using NimbusStation.Providers.Azure.Auth;
@@ -80,7 +79,6 @@ public static class Program
         // Core services
         services.AddSingleton<ISessionService, SessionService>();
         services.AddSingleton<ISessionStateManager, SessionStateManager>();
-        services.AddSingleton<GeneratorEngine>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
 
         // Alias services
