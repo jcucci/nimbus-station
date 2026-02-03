@@ -108,9 +108,8 @@ public sealed class ReplLoop
 
         while (!cancellationToken.IsCancellationRequested)
         {
-            // Render the styled prompt with Spectre.Console, then use ReadLine for input with history
-            AnsiConsole.Markup(GetPrompt());
-            var input = ReadLine.Read();
+            // Pass prompt directly to ReadLine to avoid conflicts between Spectre.Console and ReadLine
+            var input = ReadLine.Read(GetPlainPrompt());
 
             // Handle Ctrl+C (ReadLine returns null)
             if (input is null)
@@ -335,6 +334,23 @@ public sealed class ReplLoop
         }
 
         return prompt + "\u203a ";
+    }
+
+    private string GetPlainPrompt()
+    {
+        if (_sessionStateManager.CurrentSession is not { } session)
+            return "ns› ";
+
+        var prompt = $"ns[{session.TicketId}]";
+
+        var sessionContext = session.ActiveContext;
+        if (sessionContext?.ActiveCosmosAlias is { } cosmosAlias)
+            prompt += $"[{cosmosAlias}]";
+
+        if (sessionContext?.ActiveBlobAlias is { } blobAlias)
+            prompt += $"[{blobAlias}]";
+
+        return prompt + "› ";
     }
 
     private void HandleSessionChange()

@@ -78,6 +78,7 @@ public static class Program
 
         // Core services
         services.AddSingleton<ISessionService, SessionService>();
+        services.AddSingleton<ISessionStateManager, SessionStateManager>();
         services.AddSingleton<IConfigurationService, ConfigurationService>();
 
         // Alias services
@@ -104,8 +105,12 @@ public static class Program
         services.AddSingleton<ThemeCommand>();
         services.AddSingleton<CosmosCommand>();
         services.AddSingleton<BlobCommand>();
-        services.AddSingleton<HelpCommand>();
         services.AddSingleton<ExitCommand>();
+
+        // CommandRegistry and HelpCommand have a circular dependency - use Func to defer resolution
+        services.AddSingleton<Func<CommandRegistry>>(sp => () => sp.GetRequiredService<CommandRegistry>());
+        services.AddSingleton<HelpCommand>();
+
         services.AddSingleton<CommandRegistry>(sp =>
         {
             var registry = new CommandRegistry();

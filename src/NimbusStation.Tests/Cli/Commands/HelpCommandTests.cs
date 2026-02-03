@@ -21,7 +21,8 @@ public sealed class HelpCommandTests
         _outputWriter = new CaptureOutputWriter();
 
         // Register HelpCommand and a test command
-        _command = new HelpCommand(_registry, _configurationService);
+        // Use Func<CommandRegistry> to avoid circular dependency during construction
+        _command = new HelpCommand(() => _registry, _configurationService);
         _registry.Register(_command);
         _registry.Register(new TestCommand());
     }

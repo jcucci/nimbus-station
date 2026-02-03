@@ -6,17 +6,20 @@ namespace NimbusStation.Tests.Infrastructure.Configuration;
 public sealed class ConfigurationServiceTests : IDisposable
 {
     private readonly string _tempDirectory;
+    private readonly LoggerFactory _loggerFactory;
     private readonly ILogger<ConfigurationService> _logger;
 
     public ConfigurationServiceTests()
     {
         _tempDirectory = Path.Combine(Path.GetTempPath(), $"nimbus-test-{Guid.NewGuid()}");
         Directory.CreateDirectory(_tempDirectory);
-        _logger = new LoggerFactory().CreateLogger<ConfigurationService>();
+        _loggerFactory = new LoggerFactory();
+        _logger = _loggerFactory.CreateLogger<ConfigurationService>();
     }
 
     public void Dispose()
     {
+        _loggerFactory.Dispose();
         if (Directory.Exists(_tempDirectory))
         {
             Directory.Delete(_tempDirectory, recursive: true);

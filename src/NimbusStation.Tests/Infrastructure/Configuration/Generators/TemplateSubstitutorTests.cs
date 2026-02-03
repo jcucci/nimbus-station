@@ -70,6 +70,55 @@ public sealed class TemplateSubstitutorTests
     }
 
     [Fact]
+    public void Substitute_ComplexEndpoint_ExpandsCorrectly()
+    {
+        var context = new Dictionary<string, string>
+        {
+            ["abbrev"] = "ninja"
+        };
+
+        var result = TemplateSubstitutor.Substitute(
+            "https://king-{abbrev}-sharp-be-cdb.documents.azure.com:443/",
+            context);
+
+        Assert.Equal("https://king-ninja-sharp-be-cdb.documents.azure.com:443/", result);
+    }
+
+    [Fact]
+    public void TrySubstitute_AllVariablesPresent_ReturnsExpandedString()
+    {
+        var context = new Dictionary<string, string>
+        {
+            ["kingdom"] = "ninja",
+            ["backend"] = "invoices"
+        };
+
+        var result = TemplateSubstitutor.TrySubstitute("{kingdom}-{backend}", context);
+
+        Assert.Equal("ninja-invoices", result);
+    }
+
+    [Fact]
+    public void TrySubstitute_MissingVariable_ReturnsNull()
+    {
+        var context = new Dictionary<string, string> { ["name"] = "ninja" };
+
+        var result = TemplateSubstitutor.TrySubstitute("{name}-{missing}", context);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void TrySubstitute_EmptyTemplate_ReturnsEmpty()
+    {
+        var context = new Dictionary<string, string> { ["name"] = "ninja" };
+
+        var result = TemplateSubstitutor.TrySubstitute("", context);
+
+        Assert.Equal("", result);
+    }
+
+    [Fact]
     public void HasUnresolvedVariables_WithUnresolved_ReturnsTrue()
     {
         Assert.True(TemplateSubstitutor.HasUnresolvedVariables("ninja-{backend}"));
@@ -79,6 +128,18 @@ public sealed class TemplateSubstitutorTests
     public void HasUnresolvedVariables_AllResolved_ReturnsFalse()
     {
         Assert.False(TemplateSubstitutor.HasUnresolvedVariables("ninja-activities"));
+    }
+
+    [Fact]
+    public void HasVariables_WithVariables_ReturnsTrue()
+    {
+        Assert.True(TemplateSubstitutor.HasVariables("{name}"));
+    }
+
+    [Fact]
+    public void HasVariables_NoVariables_ReturnsFalse()
+    {
+        Assert.False(TemplateSubstitutor.HasVariables("plain-string"));
     }
 
     [Fact]
@@ -110,6 +171,25 @@ public sealed class TemplateSubstitutorTests
     public void GetVariables_NoVariables_ReturnsEmpty()
     {
         var variables = TemplateSubstitutor.GetVariables("no variables");
+
+        Assert.Empty(variables);
+    }
+
+    [Fact]
+    public void ExtractVariables_MultipleVariables_ReturnsDistinctList()
+    {
+        var variables = TemplateSubstitutor.ExtractVariables("{a}-{b}-{a}-{c}");
+
+        Assert.Equal(3, variables.Count);
+        Assert.Contains("a", variables);
+        Assert.Contains("b", variables);
+        Assert.Contains("c", variables);
+    }
+
+    [Fact]
+    public void ExtractVariables_NoVariables_ReturnsEmptyList()
+    {
+        var variables = TemplateSubstitutor.ExtractVariables("no-variables-here");
 
         Assert.Empty(variables);
     }

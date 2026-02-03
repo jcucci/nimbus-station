@@ -9,7 +9,7 @@ namespace NimbusStation.Cli.Commands;
 /// </summary>
 public sealed class HelpCommand : ICommand
 {
-    private readonly CommandRegistry _registry;
+    private readonly Func<CommandRegistry> _registryFactory;
     private readonly IConfigurationService _configurationService;
     private readonly Lazy<IReadOnlySet<string>> _subcommands;
 
@@ -34,14 +34,14 @@ public sealed class HelpCommand : ICommand
     /// <summary>
     /// Initializes a new instance of the <see cref="HelpCommand"/> class.
     /// </summary>
-    /// <param name="registry">The command registry.</param>
+    /// <param name="registryFactory">Factory to get the command registry (deferred to avoid circular DI).</param>
     /// <param name="configurationService">The configuration service.</param>
-    public HelpCommand(CommandRegistry registry, IConfigurationService configurationService)
+    public HelpCommand(Func<CommandRegistry> registryFactory, IConfigurationService configurationService)
     {
-        _registry = registry;
+        _registryFactory = registryFactory;
         _configurationService = configurationService;
         _subcommands = new Lazy<IReadOnlySet<string>>(
-            () => _registry.GetAllCommands().Select(c => c.Name).ToHashSet());
+            () => _registryFactory().GetAllCommands().Select(c => c.Name).ToHashSet());
     }
 
     /// <inheritdoc/>
@@ -52,7 +52,7 @@ public sealed class HelpCommand : ICommand
         if (args.Length > 0)
         {
             var commandName = args[0];
-            var command = _registry.GetCommand(commandName);
+            var command = _registryFactory().GetCommand(commandName);
 
             if (command is null)
             {
@@ -75,7 +75,7 @@ public sealed class HelpCommand : ICommand
         table.AddColumn("Command");
         table.AddColumn("Description");
 
-        foreach (var command in _registry.GetAllCommands().OrderBy(c => c.Name))
+        foreach (var command in _registryFactory().GetAllCommands().OrderBy(c => c.Name))
             table.AddRow($"[{theme.TableHeaderColor}]{command.Name}[/]", command.Description);
 
         table.AddRow($"[{theme.TableHeaderColor}]exit[/]", "Exit the REPL");

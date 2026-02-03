@@ -62,6 +62,7 @@ public sealed class ConfigurationService : IConfigurationService
 
     private readonly ILogger<ConfigurationService> _logger;
     private readonly string _configPath;
+    private readonly string _configDirectory;
     private NimbusConfiguration? _cachedConfiguration;
 
     /// <summary>
@@ -82,15 +83,14 @@ public sealed class ConfigurationService : IConfigurationService
     {
         _logger = logger;
         _configPath = configPath;
+        _configDirectory = Path.GetDirectoryName(configPath) ?? string.Empty;
     }
 
     /// <inheritdoc/>
     public async Task<NimbusConfiguration> LoadConfigurationAsync(CancellationToken cancellationToken = default)
     {
         if (_cachedConfiguration is not null)
-        {
             return _cachedConfiguration;
-        }
 
         var config = new NimbusConfiguration();
 
@@ -517,7 +517,7 @@ public sealed class ConfigurationService : IConfigurationService
     {
         var config = new CosmosGeneratorConfig
         {
-            Enabled = GetBoolValue(table, "enabled") ?? false,
+            Enabled = GetBoolValue(table, "enabled"),
             AliasNameTemplate = GetStringValue(table, "alias_name_template") ?? string.Empty,
             EndpointTemplate = GetStringValue(table, "endpoint_template") ?? string.Empty,
             DatabaseTemplate = GetStringValue(table, "database_template") ?? string.Empty,
@@ -540,7 +540,7 @@ public sealed class ConfigurationService : IConfigurationService
     private BlobGeneratorConfig ParseBlobGenerator(TomlTable table) =>
         new()
         {
-            Enabled = GetBoolValue(table, "enabled") ?? false,
+            Enabled = GetBoolValue(table, "enabled"),
             AliasNameTemplate = GetStringValue(table, "alias_name_template") ?? string.Empty,
             AccountTemplate = GetStringValue(table, "account_template") ?? string.Empty,
             ContainerTemplate = GetStringValue(table, "container_template") ?? string.Empty
@@ -549,7 +549,7 @@ public sealed class ConfigurationService : IConfigurationService
     private StorageGeneratorConfig ParseStorageGenerator(TomlTable table) =>
         new()
         {
-            Enabled = GetBoolValue(table, "enabled") ?? false,
+            Enabled = GetBoolValue(table, "enabled"),
             AliasNameTemplate = GetStringValue(table, "alias_name_template") ?? string.Empty,
             AccountTemplate = GetStringValue(table, "account_template") ?? string.Empty
         };
@@ -557,6 +557,6 @@ public sealed class ConfigurationService : IConfigurationService
     private static string? GetStringValue(TomlTable table, string key) =>
         table.TryGetValue(key, out var value) && value is string str ? str : null;
 
-    private static bool? GetBoolValue(TomlTable table, string key) =>
-        table.TryGetValue(key, out var value) && value is bool b ? b : null;
+    private static bool GetBoolValue(TomlTable table, string key, bool defaultValue = false) =>
+        table.TryGetValue(key, out var value) && value is bool b ? b : defaultValue;
 }
