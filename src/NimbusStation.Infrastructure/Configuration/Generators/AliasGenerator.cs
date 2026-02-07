@@ -170,9 +170,15 @@ public sealed class AliasGenerator
                         [dimensionName] = entry.Key
                     };
 
-                    // Add all properties from the entry (later dimensions may override earlier ones with same key)
+                    // Add properties with both unprefixed and prefixed keys.
+                    // Prefixed keys (e.g., "kingdoms_abbrev") are always unambiguous.
+                    // Unprefixed keys (e.g., "abbrev") are convenient but may collide
+                    // if multiple dimensions have the same property name - later dimensions
+                    // will override earlier ones for unprefixed keys.
                     foreach (var prop in entry.Value.Properties)
                     {
+                        var prefixedKey = $"{dimensionName}_{prop.Key}";
+                        combined[prefixedKey] = prop.Value;
                         combined[prop.Key] = prop.Value;
                     }
 

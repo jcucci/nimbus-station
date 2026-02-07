@@ -495,9 +495,7 @@ public sealed class ConfigurationServiceTests : IDisposable
 
         // Assert
         Assert.Single(config.CosmosAliases);
-        Assert.True(config.CosmosAliases.ContainsKey("ninja-activities-event"));
-
-        var alias = config.CosmosAliases["ninja-activities-event"];
+        Assert.True(config.CosmosAliases.TryGetValue("ninja-activities-event", out var alias));
         Assert.Equal("https://king-nja-be.documents.azure.com:443/", alias.Endpoint);
         Assert.Equal("activities-db", alias.Database);
         Assert.Equal("event-store", alias.Container);

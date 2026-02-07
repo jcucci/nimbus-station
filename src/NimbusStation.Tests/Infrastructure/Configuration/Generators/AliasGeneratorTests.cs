@@ -53,12 +53,10 @@ public sealed class AliasGeneratorTests
 
         // 2 kingdoms × 1 backend × 2 types = 4 aliases
         Assert.Equal(4, result.CosmosAliases.Count);
-        Assert.True(result.CosmosAliases.ContainsKey("ninja-activities-event"));
+        Assert.True(result.CosmosAliases.TryGetValue("ninja-activities-event", out var alias));
         Assert.True(result.CosmosAliases.ContainsKey("ninja-activities-view"));
         Assert.True(result.CosmosAliases.ContainsKey("exchange-activities-event"));
         Assert.True(result.CosmosAliases.ContainsKey("exchange-activities-view"));
-
-        var alias = result.CosmosAliases["ninja-activities-event"];
         Assert.Equal("https://king-nja-be.documents.azure.com:443/", alias.Endpoint);
         Assert.Equal("activities-db", alias.Database);
         Assert.Equal("event-store", alias.Container);
@@ -100,9 +98,7 @@ public sealed class AliasGeneratorTests
         var result = _generator.GenerateAliases(config);
 
         Assert.Single(result.BlobAliases);
-        Assert.True(result.BlobAliases.ContainsKey("ninja-activities-blob"));
-
-        var alias = result.BlobAliases["ninja-activities-blob"];
+        Assert.True(result.BlobAliases.TryGetValue("ninja-activities-blob", out var alias));
         Assert.Equal("kingnjabe", alias.Account);
         Assert.Equal("activities-blobs", alias.Container);
     }
@@ -140,8 +136,8 @@ public sealed class AliasGeneratorTests
 
         // Should only have 1 storage alias (deduplicated by name)
         Assert.Single(result.StorageAliases);
-        Assert.True(result.StorageAliases.ContainsKey("ninja-storage"));
-        Assert.Equal("kingnjabe", result.StorageAliases["ninja-storage"].Account);
+        Assert.True(result.StorageAliases.TryGetValue("ninja-storage", out var alias));
+        Assert.Equal("kingnjabe", alias.Account);
     }
 
     [Fact]
@@ -213,7 +209,52 @@ public sealed class AliasGeneratorTests
 
         // With resolvable template (type is provided by types map), aliases are generated
         Assert.Single(result.CosmosAliases);
-        Assert.True(result.CosmosAliases.ContainsKey("static-event"));
+        Assert.Contains("static-event", result.CosmosAliases.Keys);
+    }
+
+    [Fact]
+    public void GenerateAliases_PrefixedProperties_DisambiguateCollisions()
+    {
+        // When multiple dimensions have the same property name, prefixed keys allow disambiguation
+        var config = new GeneratorsConfig
+        {
+            Dimensions = new Dictionary<string, Dictionary<string, GeneratorDimensionEntry>>
+            {
+                ["kingdoms"] = new()
+                {
+                    ["ninja"] = new GeneratorDimensionEntry
+                    {
+                        Name = "ninja",
+                        Properties = new Dictionary<string, string> { ["abbrev"] = "nja" }
+                    }
+                },
+                ["backends"] = new()
+                {
+                    ["activities"] = new GeneratorDimensionEntry
+                    {
+                        Name = "activities",
+                        // Same property name as kingdoms, would collide if unprefixed
+                        Properties = new Dictionary<string, string> { ["abbrev"] = "act" }
+                    }
+                }
+            },
+            Cosmos = new CosmosGeneratorConfig
+            {
+                Enabled = true,
+                AliasNameTemplate = "{kingdoms}-{backends}-{type}",
+                // Use prefixed keys to disambiguate
+                EndpointTemplate = "https://{kingdoms_abbrev}-{backends_abbrev}.documents.azure.com:443/",
+                DatabaseTemplate = "db",
+                Types = new Dictionary<string, string> { ["event"] = "event-store" }
+            }
+        };
+
+        var result = _generator.GenerateAliases(config);
+
+        Assert.Single(result.CosmosAliases);
+        Assert.True(result.CosmosAliases.TryGetValue("ninja-activities-event", out var alias));
+        // Prefixed keys allow using both abbrev values
+        Assert.Equal("https://nja-act.documents.azure.com:443/", alias.Endpoint);
     }
 
     [Fact]
