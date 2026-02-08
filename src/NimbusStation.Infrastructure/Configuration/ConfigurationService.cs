@@ -157,6 +157,9 @@ public sealed class ConfigurationService : IConfigurationService
 
                 // Merge generated aliases first (lowest priority)
                 ConfigurationMerger.Merge(config, generatedConfig);
+
+                // Preserve generators metadata for browser hierarchy
+                config.Generators = generators;
             }
 
             // Merge this file's explicit config (overrides generated and included)
@@ -228,10 +231,24 @@ public sealed class ConfigurationService : IConfigurationService
     }
 
     /// <inheritdoc/>
-    public ThemeConfig GetTheme()
-    {
-        return _cachedConfiguration?.Theme ?? ThemeConfig.Default;
-    }
+    public ThemeConfig GetTheme() =>
+        _cachedConfiguration?.Theme ?? ThemeConfig.Default;
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<string, CosmosAliasConfig> GetAllCosmosAliases() =>
+        _cachedConfiguration?.CosmosAliases ?? new Dictionary<string, CosmosAliasConfig>();
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<string, BlobAliasConfig> GetAllBlobAliases() =>
+        _cachedConfiguration?.BlobAliases ?? new Dictionary<string, BlobAliasConfig>();
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<string, StorageAliasConfig> GetAllStorageAliases() =>
+        _cachedConfiguration?.StorageAliases ?? new Dictionary<string, StorageAliasConfig>();
+
+    /// <inheritdoc/>
+    public GeneratorsConfig? GetGeneratorsConfig() =>
+        _cachedConfiguration?.Generators;
 
     private static string GetDefaultConfigPath()
     {

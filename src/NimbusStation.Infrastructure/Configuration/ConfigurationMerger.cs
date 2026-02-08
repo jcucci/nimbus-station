@@ -1,3 +1,5 @@
+using NimbusStation.Infrastructure.Configuration.Generators;
+
 namespace NimbusStation.Infrastructure.Configuration;
 
 /// <summary>
@@ -23,6 +25,40 @@ public static class ConfigurationMerger
         MergeDictionary(target.CosmosAliases, source.CosmosAliases);
         MergeDictionary(target.BlobAliases, source.BlobAliases);
         MergeDictionary(target.StorageAliases, source.StorageAliases);
+
+        if (source.Generators is not null)
+            MergeGenerators(target, source.Generators);
+    }
+
+    private static void MergeGenerators(NimbusConfiguration target, GeneratorsConfig source)
+    {
+        if (target.Generators is null)
+        {
+            target.Generators = source;
+            return;
+        }
+
+        // Merge dimensions (source overrides target keys)
+        foreach (var (dimName, dimEntries) in source.Dimensions)
+        {
+            if (target.Generators.Dimensions.TryGetValue(dimName, out var existingEntries))
+            {
+                foreach (var (entryKey, entry) in dimEntries)
+                    existingEntries[entryKey] = entry;
+            }
+            else
+            {
+                target.Generators.Dimensions[dimName] = dimEntries;
+            }
+        }
+
+        // Non-null source generator configs replace target
+        if (source.Cosmos is not null)
+            target.Generators.Cosmos = source.Cosmos;
+        if (source.Blob is not null)
+            target.Generators.Blob = source.Blob;
+        if (source.Storage is not null)
+            target.Generators.Storage = source.Storage;
     }
 
     private static ThemeConfig MergeTheme(ThemeConfig target, ThemeConfig source)

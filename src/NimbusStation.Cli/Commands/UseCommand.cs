@@ -1,6 +1,8 @@
 using NimbusStation.Core.Commands;
 using NimbusStation.Core.Session;
+using NimbusStation.Infrastructure.Browser;
 using NimbusStation.Infrastructure.Configuration;
+using Spectre.Console;
 
 namespace NimbusStation.Cli.Commands;
 
@@ -86,19 +88,90 @@ public sealed class UseCommand : ICommand
     private async Task<CommandResult> HandleSetCosmosAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
     {
         if (args.Length == 0)
-            return CommandResult.Error("Usage: use cosmos <alias>");
+        {
+            if (!AnsiConsole.Profile.Capabilities.Interactive)
+                return CommandResult.Error("Usage: use cosmos <alias>");
 
-        var aliasName = args[0];
+            return await HandleInteractiveBrowseAsync("cosmos", context, cancellationToken);
+        }
+
+        return await ActivateCosmosAliasAsync(args[0], context, cancellationToken);
+    }
+
+    private async Task<CommandResult> HandleSetBlobAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
+    {
+        if (args.Length == 0)
+        {
+            if (!AnsiConsole.Profile.Capabilities.Interactive)
+                return CommandResult.Error("Usage: use blob <alias>");
+
+            return await HandleInteractiveBrowseAsync("blob", context, cancellationToken);
+        }
+
+        return await ActivateBlobAliasAsync(args[0], context, cancellationToken);
+    }
+
+    private async Task<CommandResult> HandleSetStorageAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
+    {
+        if (args.Length == 0)
+        {
+            if (!AnsiConsole.Profile.Capabilities.Interactive)
+                return CommandResult.Error("Usage: use storage <alias>");
+
+            return await HandleInteractiveBrowseAsync("storage", context, cancellationToken);
+        }
+
+        return await ActivateStorageAliasAsync(args[0], context, cancellationToken);
+    }
+
+    private async Task<CommandResult> HandleInteractiveBrowseAsync(
+        string providerType,
+        CommandContext context,
+        CancellationToken cancellationToken)
+    {
+        var generators = _configurationService.GetGeneratorsConfig();
+        var theme = _configurationService.GetTheme();
+
+        var (allAliasNames, hierarchy) = providerType switch
+        {
+            "cosmos" => (
+                _configurationService.GetAllCosmosAliases().Keys.ToList() as IReadOnlyCollection<string>,
+                AliasHierarchyBuilder.BuildCosmosHierarchy(generators, _configurationService.GetAllCosmosAliases().Keys.ToList())),
+            "blob" => (
+                _configurationService.GetAllBlobAliases().Keys.ToList() as IReadOnlyCollection<string>,
+                AliasHierarchyBuilder.BuildBlobHierarchy(generators, _configurationService.GetAllBlobAliases().Keys.ToList())),
+            "storage" => (
+                _configurationService.GetAllStorageAliases().Keys.ToList() as IReadOnlyCollection<string>,
+                AliasHierarchyBuilder.BuildStorageHierarchy(generators, _configurationService.GetAllStorageAliases().Keys.ToList())),
+            _ => throw new ArgumentException($"Unknown provider type: {providerType}")
+        };
+
+        if (allAliasNames.Count == 0)
+            return CommandResult.Error($"No {providerType} aliases configured.");
+
+        string? selectedAlias = AliasBrowserHandler.Run(providerType, hierarchy, allAliasNames, theme);
+        if (selectedAlias is null)
+            return CommandResult.Ok();
+
+        return providerType switch
+        {
+            "cosmos" => await ActivateCosmosAliasAsync(selectedAlias, context, cancellationToken),
+            "blob" => await ActivateBlobAliasAsync(selectedAlias, context, cancellationToken),
+            "storage" => await ActivateStorageAliasAsync(selectedAlias, context, cancellationToken),
+            _ => CommandResult.Error($"Unknown provider: {providerType}")
+        };
+    }
+
+    private async Task<CommandResult> ActivateCosmosAliasAsync(string aliasName, CommandContext context, CancellationToken cancellationToken)
+    {
         var theme = _configurationService.GetTheme();
         var aliasConfig = _configurationService.GetCosmosAlias(aliasName);
 
         if (aliasConfig is null)
             return CommandResult.Error($"Cosmos alias '{aliasName}' not found in config.");
 
-        // Update in-memory state
         _sessionStateManager.SetCosmosAlias(aliasName);
 
-        // Persist to disk
         await _sessionService.UpdateSessionContextAsync(
             context.CurrentSession!.TicketId,
             context.CurrentSession.ActiveContext!,
@@ -110,22 +183,16 @@ public sealed class UseCommand : ICommand
         return CommandResult.Ok();
     }
 
-    private async Task<CommandResult> HandleSetBlobAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
+    private async Task<CommandResult> ActivateBlobAliasAsync(string aliasName, CommandContext context, CancellationToken cancellationToken)
     {
-        if (args.Length == 0)
-            return CommandResult.Error("Usage: use blob <alias>");
-
-        var aliasName = args[0];
         var theme = _configurationService.GetTheme();
         var aliasConfig = _configurationService.GetBlobAlias(aliasName);
 
         if (aliasConfig is null)
             return CommandResult.Error($"Blob alias '{aliasName}' not found in config.");
 
-        // Update in-memory state
         _sessionStateManager.SetBlobAlias(aliasName);
 
-        // Persist to disk
         await _sessionService.UpdateSessionContextAsync(
             context.CurrentSession!.TicketId,
             context.CurrentSession.ActiveContext!,
@@ -137,22 +204,16 @@ public sealed class UseCommand : ICommand
         return CommandResult.Ok();
     }
 
-    private async Task<CommandResult> HandleSetStorageAsync(string[] args, CommandContext context, CancellationToken cancellationToken)
+    private async Task<CommandResult> ActivateStorageAliasAsync(string aliasName, CommandContext context, CancellationToken cancellationToken)
     {
-        if (args.Length == 0)
-            return CommandResult.Error("Usage: use storage <alias>");
-
-        var aliasName = args[0];
         var theme = _configurationService.GetTheme();
         var aliasConfig = _configurationService.GetStorageAlias(aliasName);
 
         if (aliasConfig is null)
             return CommandResult.Error($"Storage alias '{aliasName}' not found in config.");
 
-        // Update in-memory state
         _sessionStateManager.SetStorageAlias(aliasName);
 
-        // Persist to disk
         await _sessionService.UpdateSessionContextAsync(
             context.CurrentSession!.TicketId,
             context.CurrentSession.ActiveContext!,

@@ -1,4 +1,5 @@
 using NimbusStation.Infrastructure.Configuration;
+using NimbusStation.Infrastructure.Configuration.Generators;
 
 namespace NimbusStation.Tests.Fixtures;
 
@@ -10,6 +11,7 @@ public sealed class StubConfigurationService : IConfigurationService
     private readonly Dictionary<string, CosmosAliasConfig> _cosmosAliases = new();
     private readonly Dictionary<string, BlobAliasConfig> _blobAliases = new();
     private readonly Dictionary<string, StorageAliasConfig> _storageAliases = new();
+    private GeneratorsConfig? _generators;
 
     /// <summary>
     /// Adds a Cosmos alias configuration for testing.
@@ -25,6 +27,11 @@ public sealed class StubConfigurationService : IConfigurationService
     /// Adds a Storage alias configuration for testing.
     /// </summary>
     public void AddStorageAlias(string name, StorageAliasConfig config) => _storageAliases[name] = config;
+
+    /// <summary>
+    /// Sets the generators configuration for testing.
+    /// </summary>
+    public void SetGeneratorsConfig(GeneratorsConfig config) => _generators = config;
 
     /// <inheritdoc/>
     public Task<NimbusConfiguration> LoadConfigurationAsync(CancellationToken cancellationToken = default)
@@ -44,4 +51,16 @@ public sealed class StubConfigurationService : IConfigurationService
 
     /// <inheritdoc/>
     public ThemeConfig GetTheme() => ThemeConfig.Default;
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<string, CosmosAliasConfig> GetAllCosmosAliases() => _cosmosAliases;
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<string, BlobAliasConfig> GetAllBlobAliases() => _blobAliases;
+
+    /// <inheritdoc/>
+    public IReadOnlyDictionary<string, StorageAliasConfig> GetAllStorageAliases() => _storageAliases;
+
+    /// <inheritdoc/>
+    public GeneratorsConfig? GetGeneratorsConfig() => _generators;
 }
