@@ -9,18 +9,6 @@ namespace NimbusStation.Cli.Commands;
 /// </summary>
 public static class AliasBrowserHandler
 {
-    /// <summary>
-    /// Specifies how the browser behaves after an alias is selected.
-    /// </summary>
-    public enum BrowseMode
-    {
-        /// <summary>Select mode: returns the alias name for activation.</summary>
-        Select,
-
-        /// <summary>Display mode: shows alias details without activating.</summary>
-        Display
-    }
-
     private const string GoBackSentinel = "__GO_BACK__";
 
     /// <summary>
@@ -153,7 +141,7 @@ public static class AliasBrowserHandler
         $"  {key} -> {aliasName}";
 
     private static bool IsGoBack(string selection) =>
-        selection.Contains(GoBackSentinel);
+        selection.StartsWith(GoBackSentinel);
 
     private static string? ParseSelectedKey(string selection, AliasHierarchyNode currentNode)
     {

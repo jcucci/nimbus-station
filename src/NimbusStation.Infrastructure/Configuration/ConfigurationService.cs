@@ -65,6 +65,15 @@ public sealed class ConfigurationService : IConfigurationService
     private readonly string _configDirectory;
     private NimbusConfiguration? _cachedConfiguration;
 
+    private static readonly IReadOnlyDictionary<string, CosmosAliasConfig> s_emptyCosmosAliases =
+        new Dictionary<string, CosmosAliasConfig>();
+
+    private static readonly IReadOnlyDictionary<string, BlobAliasConfig> s_emptyBlobAliases =
+        new Dictionary<string, BlobAliasConfig>();
+
+    private static readonly IReadOnlyDictionary<string, StorageAliasConfig> s_emptyStorageAliases =
+        new Dictionary<string, StorageAliasConfig>();
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ConfigurationService"/> class.
     /// </summary>
@@ -235,16 +244,40 @@ public sealed class ConfigurationService : IConfigurationService
         _cachedConfiguration?.Theme ?? ThemeConfig.Default;
 
     /// <inheritdoc/>
-    public IReadOnlyDictionary<string, CosmosAliasConfig> GetAllCosmosAliases() =>
-        _cachedConfiguration?.CosmosAliases ?? new Dictionary<string, CosmosAliasConfig>();
+    public IReadOnlyDictionary<string, CosmosAliasConfig> GetAllCosmosAliases()
+    {
+        if (_cachedConfiguration is null)
+        {
+            _logger.LogWarning("Configuration not loaded. Call LoadConfigurationAsync first.");
+            return s_emptyCosmosAliases;
+        }
+
+        return _cachedConfiguration.CosmosAliases;
+    }
 
     /// <inheritdoc/>
-    public IReadOnlyDictionary<string, BlobAliasConfig> GetAllBlobAliases() =>
-        _cachedConfiguration?.BlobAliases ?? new Dictionary<string, BlobAliasConfig>();
+    public IReadOnlyDictionary<string, BlobAliasConfig> GetAllBlobAliases()
+    {
+        if (_cachedConfiguration is null)
+        {
+            _logger.LogWarning("Configuration not loaded. Call LoadConfigurationAsync first.");
+            return s_emptyBlobAliases;
+        }
+
+        return _cachedConfiguration.BlobAliases;
+    }
 
     /// <inheritdoc/>
-    public IReadOnlyDictionary<string, StorageAliasConfig> GetAllStorageAliases() =>
-        _cachedConfiguration?.StorageAliases ?? new Dictionary<string, StorageAliasConfig>();
+    public IReadOnlyDictionary<string, StorageAliasConfig> GetAllStorageAliases()
+    {
+        if (_cachedConfiguration is null)
+        {
+            _logger.LogWarning("Configuration not loaded. Call LoadConfigurationAsync first.");
+            return s_emptyStorageAliases;
+        }
+
+        return _cachedConfiguration.StorageAliases;
+    }
 
     /// <inheritdoc/>
     public GeneratorsConfig? GetGeneratorsConfig() =>

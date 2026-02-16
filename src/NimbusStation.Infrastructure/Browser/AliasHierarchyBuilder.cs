@@ -27,7 +27,7 @@ public static class AliasHierarchyBuilder
             generators.Dimensions,
             SynthesizeTypeDimension(cosmos.Types));
 
-        return BuildHierarchy(dimensionOrder, cosmos.AliasNameTemplate, generators.Dimensions, allAliasNames);
+        return BuildHierarchy(dimensionOrder, cosmos.AliasNameTemplate, allAliasNames);
     }
 
     /// <summary>
@@ -49,7 +49,7 @@ public static class AliasHierarchyBuilder
             generators.Dimensions,
             syntheticDimensions: null);
 
-        return BuildHierarchy(dimensionOrder, blob.AliasNameTemplate, generators.Dimensions, allAliasNames);
+        return BuildHierarchy(dimensionOrder, blob.AliasNameTemplate, allAliasNames);
     }
 
     /// <summary>
@@ -71,13 +71,12 @@ public static class AliasHierarchyBuilder
             generators.Dimensions,
             syntheticDimensions: null);
 
-        return BuildHierarchy(dimensionOrder, storage.AliasNameTemplate, generators.Dimensions, allAliasNames);
+        return BuildHierarchy(dimensionOrder, storage.AliasNameTemplate, allAliasNames);
     }
 
     private static AliasHierarchyNode? BuildHierarchy(
         List<(string Name, Dictionary<string, GeneratorDimensionEntry> Entries)> dimensionOrder,
         string aliasNameTemplate,
-        Dictionary<string, Dictionary<string, GeneratorDimensionEntry>> allDimensions,
         IReadOnlyCollection<string> allAliasNames)
     {
         if (dimensionOrder.Count == 0 || allAliasNames.Count == 0)

@@ -61,17 +61,19 @@ public sealed class BrowseCommand : ICommand
         var generators = _configurationService.GetGeneratorsConfig();
         var theme = _configurationService.GetTheme();
 
-        var (allAliasNames, hierarchy) = providerType switch
+        List<string> allAliasNames = providerType switch
         {
-            "cosmos" => (
-                _configurationService.GetAllCosmosAliases().Keys.ToList() as IReadOnlyCollection<string>,
-                AliasHierarchyBuilder.BuildCosmosHierarchy(generators, _configurationService.GetAllCosmosAliases().Keys.ToList())),
-            "blob" => (
-                _configurationService.GetAllBlobAliases().Keys.ToList() as IReadOnlyCollection<string>,
-                AliasHierarchyBuilder.BuildBlobHierarchy(generators, _configurationService.GetAllBlobAliases().Keys.ToList())),
-            "storage" => (
-                _configurationService.GetAllStorageAliases().Keys.ToList() as IReadOnlyCollection<string>,
-                AliasHierarchyBuilder.BuildStorageHierarchy(generators, _configurationService.GetAllStorageAliases().Keys.ToList())),
+            "cosmos" => _configurationService.GetAllCosmosAliases().Keys.ToList(),
+            "blob" => _configurationService.GetAllBlobAliases().Keys.ToList(),
+            "storage" => _configurationService.GetAllStorageAliases().Keys.ToList(),
+            _ => throw new ArgumentException($"Unknown provider type: {providerType}")
+        };
+
+        AliasHierarchyNode? hierarchy = providerType switch
+        {
+            "cosmos" => AliasHierarchyBuilder.BuildCosmosHierarchy(generators, allAliasNames),
+            "blob" => AliasHierarchyBuilder.BuildBlobHierarchy(generators, allAliasNames),
+            "storage" => AliasHierarchyBuilder.BuildStorageHierarchy(generators, allAliasNames),
             _ => throw new ArgumentException($"Unknown provider type: {providerType}")
         };
 

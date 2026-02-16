@@ -54,25 +54,23 @@ public sealed class AliasHierarchyBuilderTests
         Assert.NotNull(root);
         // Root should have 2 kingdoms
         Assert.Equal(2, root.Children.Count);
-        Assert.True(root.Children.ContainsKey("ninja"));
+        Assert.True(root.Children.TryGetValue("ninja", out AliasHierarchyNode? ninja));
         Assert.True(root.Children.ContainsKey("exchange"));
 
         // Each kingdom should have 2 backends
-        AliasHierarchyNode ninja = root.Children["ninja"];
-        Assert.Equal(2, ninja.Children.Count);
-        Assert.True(ninja.Children.ContainsKey("activities"));
+        Assert.Equal(2, ninja!.Children.Count);
+        Assert.True(ninja.Children.TryGetValue("activities", out AliasHierarchyNode? ninjaActivities));
         Assert.True(ninja.Children.ContainsKey("invoices"));
 
         // Each backend should have 2 types (leaf nodes)
-        AliasHierarchyNode ninjaActivities = ninja.Children["activities"];
-        Assert.Equal(2, ninjaActivities.Children.Count);
-        Assert.True(ninjaActivities.Children.ContainsKey("event"));
-        Assert.True(ninjaActivities.Children.ContainsKey("data"));
+        Assert.Equal(2, ninjaActivities!.Children.Count);
+        Assert.True(ninjaActivities.Children.TryGetValue("event", out AliasHierarchyNode? eventNode));
+        Assert.True(ninjaActivities.Children.TryGetValue("data", out AliasHierarchyNode? dataNode));
 
         // Leaf nodes should have correct alias names
-        Assert.True(ninjaActivities.Children["event"].IsLeaf);
-        Assert.Equal("ninja-activities-event", ninjaActivities.Children["event"].AliasName);
-        Assert.Equal("ninja-activities-data", ninjaActivities.Children["data"].AliasName);
+        Assert.True(eventNode!.IsLeaf);
+        Assert.Equal("ninja-activities-event", eventNode.AliasName);
+        Assert.Equal("ninja-activities-data", dataNode!.AliasName);
     }
 
     [Fact]
@@ -91,16 +89,15 @@ public sealed class AliasHierarchyBuilderTests
 
         Assert.NotNull(root);
         Assert.True(root.Children.ContainsKey("ninja"));
-        Assert.True(root.Children.ContainsKey("Custom"));
+        Assert.True(root.Children.TryGetValue("Custom", out AliasHierarchyNode? custom));
 
-        AliasHierarchyNode custom = root.Children["Custom"];
-        Assert.Equal(2, custom.Children.Count);
+        Assert.Equal(2, custom!.Children.Count);
         Assert.True(custom.Children.ContainsKey("another-manual-one"));
-        Assert.True(custom.Children.ContainsKey("my-custom-alias"));
+        Assert.True(custom.Children.TryGetValue("my-custom-alias", out AliasHierarchyNode? myCustom));
 
         // Custom leaves should reference themselves
-        Assert.True(custom.Children["my-custom-alias"].IsLeaf);
-        Assert.Equal("my-custom-alias", custom.Children["my-custom-alias"].AliasName);
+        Assert.True(myCustom!.IsLeaf);
+        Assert.Equal("my-custom-alias", myCustom.AliasName);
     }
 
     [Fact]
@@ -154,13 +151,10 @@ public sealed class AliasHierarchyBuilderTests
         AliasHierarchyNode? root = AliasHierarchyBuilder.BuildCosmosHierarchy(generators, aliases);
 
         Assert.NotNull(root);
-        Assert.True(root.Children.ContainsKey("ninja"));
+        Assert.True(root.Children.TryGetValue("ninja", out AliasHierarchyNode? ninja));
 
-        AliasHierarchyNode ninja = root.Children["ninja"];
-        Assert.True(ninja.Children.ContainsKey("charge-assemblies"));
-
-        AliasHierarchyNode chargeAssemblies = ninja.Children["charge-assemblies"];
-        Assert.Equal(2, chargeAssemblies.Children.Count);
+        Assert.True(ninja!.Children.TryGetValue("charge-assemblies", out AliasHierarchyNode? chargeAssemblies));
+        Assert.Equal(2, chargeAssemblies!.Children.Count);
         Assert.Equal("ninja-charge-assemblies-event", chargeAssemblies.Children["event"].AliasName);
     }
 
@@ -207,14 +201,14 @@ public sealed class AliasHierarchyBuilderTests
 
         Assert.NotNull(root);
         Assert.Equal(2, root.Children.Count);
-        Assert.True(root.Children.ContainsKey("ninja"));
+        Assert.True(root.Children.TryGetValue("ninja", out AliasHierarchyNode? ninja));
         Assert.True(root.Children.ContainsKey("exchange"));
 
         // Each kingdom has one backend (leaf level for blob since no type dimension)
-        AliasHierarchyNode ninja = root.Children["ninja"];
-        Assert.Single(ninja.Children);
-        Assert.True(ninja.Children["activities"].IsLeaf);
-        Assert.Equal("ninja-activities-blob", ninja.Children["activities"].AliasName);
+        Assert.Single(ninja!.Children);
+        Assert.True(ninja.Children.TryGetValue("activities", out AliasHierarchyNode? activities));
+        Assert.True(activities!.IsLeaf);
+        Assert.Equal("ninja-activities-blob", activities.AliasName);
     }
 
     [Fact]

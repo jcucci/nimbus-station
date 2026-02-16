@@ -13,7 +13,7 @@ public sealed class AliasHierarchyNode
 
     /// <summary>
     /// Gets the dimension name this node belongs to (e.g., "kingdoms").
-    /// Null for the root node and for leaf nodes.
+    /// Null for the root node. Set for generated nodes (both branch and leaf).
     /// </summary>
     public string? DimensionName { get; init; }
 
