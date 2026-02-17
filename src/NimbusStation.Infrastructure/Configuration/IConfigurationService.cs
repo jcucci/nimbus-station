@@ -1,3 +1,5 @@
+using NimbusStation.Infrastructure.Configuration.Generators;
+
 namespace NimbusStation.Infrastructure.Configuration;
 
 /// <summary>
@@ -38,4 +40,28 @@ public interface IConfigurationService
     /// </summary>
     /// <returns>The theme configuration.</returns>
     ThemeConfig GetTheme();
+
+    /// <summary>
+    /// Gets all CosmosDB alias configurations.
+    /// </summary>
+    /// <returns>All Cosmos alias configurations keyed by name.</returns>
+    IReadOnlyDictionary<string, CosmosAliasConfig> GetAllCosmosAliases();
+
+    /// <summary>
+    /// Gets all Blob storage alias configurations.
+    /// </summary>
+    /// <returns>All Blob alias configurations keyed by name.</returns>
+    IReadOnlyDictionary<string, BlobAliasConfig> GetAllBlobAliases();
+
+    /// <summary>
+    /// Gets all Storage account alias configurations.
+    /// </summary>
+    /// <returns>All Storage alias configurations keyed by name.</returns>
+    IReadOnlyDictionary<string, StorageAliasConfig> GetAllStorageAliases();
+
+    /// <summary>
+    /// Gets the generators configuration, or null if none configured.
+    /// </summary>
+    /// <returns>The generators configuration, or null.</returns>
+    GeneratorsConfig? GetGeneratorsConfig();
 }
