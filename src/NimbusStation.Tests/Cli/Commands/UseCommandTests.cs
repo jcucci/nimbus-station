@@ -253,6 +253,9 @@ public sealed class UseCommandTests
         Assert.Contains("clear", _command.Subcommands);
     }
 
+    [Fact]
+    public void HelpMetadata_IsNotNull() => Assert.NotNull(_command.HelpMetadata);
+
     private CommandContext CreateContextWithSession()
     {
         _sessionStateManager.ActivateSession(Session.Create("TEST-123"));

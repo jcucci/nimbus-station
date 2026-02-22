@@ -317,6 +317,9 @@ public sealed class BlobCommandTests
             .WithContext(new SessionContext(null, "prod-exports", null)));
     }
 
+    [Fact]
+    public void HelpMetadata_IsNotNull() => Assert.NotNull(_command.HelpMetadata);
+
     private CommandContext CreateContextWithSession()
     {
         _sessionStateManager.ActivateSession(Session.Create("TEST-123"));

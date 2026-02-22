@@ -26,6 +26,24 @@ public sealed class ThemeCommand : ICommand
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands;
 
+    /// <inheritdoc/>
+    public CommandHelpMetadata HelpMetadata { get; } = new()
+    {
+        Subcommands =
+        [
+            new("list, ls, presets", "List available themes"),
+            new("preview <name>", "Preview a theme's colors"),
+            new("current", "Show the current theme configuration")
+        ],
+        Examples =
+        [
+            new("theme list", "View available themes"),
+            new("theme preview monokai", "Preview the monokai theme"),
+            new("theme current", "Show active theme colors")
+        ],
+        Notes = "Configure your theme in ~/.config/nimbus/config.toml under [theme]."
+    };
+
     /// <summary>
     /// Initializes a new instance of the <see cref="ThemeCommand"/> class.
     /// </summary>

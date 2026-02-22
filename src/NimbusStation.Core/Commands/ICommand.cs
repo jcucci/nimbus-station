@@ -39,6 +39,12 @@ public interface ICommand
     bool CanBePiped => true;
 
     /// <summary>
+    /// Gets structured help metadata for rich inline help rendering.
+    /// Returns null when the command has no structured help, falling back to basic name/description/usage.
+    /// </summary>
+    CommandHelpMetadata? HelpMetadata => null;
+
+    /// <summary>
     /// Executes the command with the given arguments.
     /// </summary>
     /// <param name="args">The arguments passed to the command (excluding the command name itself).</param>

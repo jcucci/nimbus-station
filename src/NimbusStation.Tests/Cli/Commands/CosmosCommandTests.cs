@@ -247,6 +247,9 @@ public sealed class CosmosCommandTests
         Assert.Contains("query", _command.Subcommands);
     }
 
+    [Fact]
+    public void HelpMetadata_IsNotNull() => Assert.NotNull(_command.HelpMetadata);
+
     private void SetupValidCosmosContext()
     {
         _configurationService.AddCosmosAlias("prod-orders", new CosmosAliasConfig(

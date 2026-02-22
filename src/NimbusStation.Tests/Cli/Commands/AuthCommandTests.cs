@@ -206,4 +206,7 @@ public sealed class AuthCommandTests
 
         Assert.True(result.Success);
     }
+
+    [Fact]
+    public void HelpMetadata_IsNotNull() => Assert.NotNull(_command.HelpMetadata);
 }

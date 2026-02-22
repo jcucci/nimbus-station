@@ -26,6 +26,16 @@ public sealed class ExitCommand : ICommand
     public bool CanBePiped => false;
 
     /// <inheritdoc/>
+    public CommandHelpMetadata HelpMetadata { get; } = new()
+    {
+        Examples =
+        [
+            new("exit", "Exit the REPL")
+        ],
+        Notes = "Aliases: quit, q"
+    };
+
+    /// <inheritdoc/>
     public Task<CommandResult> ExecuteAsync(string[] args, CommandContext context, CancellationToken cancellationToken = default) =>
         Task.FromResult(CommandResult.Exit());
 }
