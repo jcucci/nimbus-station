@@ -1,0 +1,15 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/NimbusStation.Cli/NimbusStation.Cli.csproj" />
+    <Project Path="src/NimbusStation.Core/NimbusStation.Core.csproj" />
+    <Project Path="src/NimbusStation.Infrastructure/NimbusStation.Infrastructure.csproj" />
+    <Project Path="src/NimbusStation.Providers.Azure/NimbusStation.Providers.Azure.csproj" />
+    <Project Path="src/NimbusStation.Spike.Piping/NimbusStation.Spike.Piping.csproj" />
+    <Project Path="src/NimbusStation.Tests/NimbusStation.Tests.csproj" />
+  </Folder>
+</Solution>

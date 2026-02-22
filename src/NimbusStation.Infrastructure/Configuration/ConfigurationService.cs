@@ -466,7 +466,8 @@ public sealed class ConfigurationService : IConfigurationService
                 continue;
             }
 
-            config.BlobAliases[aliasName] = new BlobAliasConfig(account!, container!);
+            var authMode = GetStringValue(aliasTable, "auth-mode");
+            config.BlobAliases[aliasName] = new BlobAliasConfig(account!, container!, authMode);
         }
     }
 
@@ -500,7 +501,8 @@ public sealed class ConfigurationService : IConfigurationService
                 continue;
             }
 
-            config.StorageAliases[aliasName] = new StorageAliasConfig(account);
+            var authMode = GetStringValue(aliasTable, "auth-mode");
+            config.StorageAliases[aliasName] = new StorageAliasConfig(account, authMode);
         }
     }
 

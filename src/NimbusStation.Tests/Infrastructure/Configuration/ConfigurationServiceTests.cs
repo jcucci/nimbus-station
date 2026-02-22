@@ -92,6 +92,55 @@ public sealed class ConfigurationServiceTests : IDisposable
         Assert.True(config.BlobAliases.ContainsKey("prod-logs"));
         Assert.Equal("prodlogs", config.BlobAliases["prod-logs"].Account);
         Assert.Equal("applogs", config.BlobAliases["prod-logs"].Container);
+        Assert.Null(config.BlobAliases["prod-logs"].AuthMode);
+    }
+
+    [Fact]
+    public async Task LoadConfigurationAsync_BlobAliasWithAuthMode_ParsesAuthMode()
+    {
+        // Arrange
+        const string toml =
+            """
+            [aliases.blob]
+            key-blob = { account = "myaccount", container = "mycontainer", auth-mode = "key" }
+            login-blob = { account = "myaccount2", container = "mycontainer2", auth-mode = "login" }
+            default-blob = { account = "myaccount3", container = "mycontainer3" }
+            """;
+
+        await WriteConfigAsync(toml);
+        var service = new ConfigurationService(_logger, GetConfigPath());
+
+        // Act
+        var config = await service.LoadConfigurationAsync();
+
+        // Assert
+        Assert.Equal(3, config.BlobAliases.Count);
+        Assert.Equal("key", config.BlobAliases["key-blob"].AuthMode);
+        Assert.Equal("login", config.BlobAliases["login-blob"].AuthMode);
+        Assert.Null(config.BlobAliases["default-blob"].AuthMode);
+    }
+
+    [Fact]
+    public async Task LoadConfigurationAsync_StorageAliasWithAuthMode_ParsesAuthMode()
+    {
+        // Arrange
+        const string toml =
+            """
+            [aliases.storage]
+            key-storage = { account = "myaccount", auth-mode = "key" }
+            default-storage = { account = "myaccount2" }
+            """;
+
+        await WriteConfigAsync(toml);
+        var service = new ConfigurationService(_logger, GetConfigPath());
+
+        // Act
+        var config = await service.LoadConfigurationAsync();
+
+        // Assert
+        Assert.Equal(2, config.StorageAliases.Count);
+        Assert.Equal("key", config.StorageAliases["key-storage"].AuthMode);
+        Assert.Null(config.StorageAliases["default-storage"].AuthMode);
     }
 
     [Fact]

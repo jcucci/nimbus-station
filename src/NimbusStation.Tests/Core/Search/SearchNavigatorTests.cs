@@ -247,6 +247,28 @@ public sealed class SearchNavigatorTests
     }
 
     [Fact]
+    public void ParseItems_WithPartialPrefix_ShowsFullDirectoryName()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var blobs = new[]
+        {
+            new TestBlob("Organizations/88853aa0-1291-47c1-b1e2-864bf2015e0a/file.json", 100, now)
+        };
+
+        var result = SearchNavigator.ParseItems(
+            blobs,
+            currentPrefix: "Organizations/888",
+            pathSelector: b => b.Path,
+            sizeSelector: b => b.Size,
+            lastModifiedSelector: b => b.Modified);
+
+        var dir = Assert.Single(result);
+        Assert.Equal(SearchItemKind.Directory, dir.Kind);
+        Assert.Equal("88853aa0-1291-47c1-b1e2-864bf2015e0a/", dir.Name);
+        Assert.Equal("Organizations/88853aa0-1291-47c1-b1e2-864bf2015e0a/", dir.FullPath);
+    }
+
+    [Fact]
     public void ParseItems_PreservesFileMetadata()
     {
         var modified = new DateTimeOffset(2024, 6, 15, 10, 30, 0, TimeSpan.Zero);

@@ -51,7 +51,20 @@ public sealed class BlobServiceTests
         var call = Assert.Single(_cliExecutor.ExecuteCalls);
         Assert.Contains("storage container list", call);
         Assert.Contains("--account-name \"mystorageaccount\"", call);
-        Assert.Contains("--auth-mode login", call);
+        Assert.DoesNotContain("--auth-mode", call);
+    }
+
+    [Fact]
+    public async Task ListContainersAsync_WithKeyAuthMode_PassesKeyAuthMode()
+    {
+        _configurationService.AddStorageAlias("test-storage", new StorageAliasConfig("mystorageaccount", AuthMode: "key"));
+        _cliExecutor.SetupJsonResult("[]");
+
+        await _service.ListContainersAsync("test-storage");
+
+        var call = Assert.Single(_cliExecutor.ExecuteCalls);
+        Assert.Contains("--auth-mode key", call);
+        Assert.DoesNotContain("--auth-mode login", call);
     }
 
     [Fact]
@@ -76,7 +89,22 @@ public sealed class BlobServiceTests
         Assert.Contains("storage blob list", call);
         Assert.Contains("--account-name \"mystorageaccount\"", call);
         Assert.Contains("--container-name \"mycontainer\"", call);
-        Assert.Contains("--auth-mode login", call);
+        Assert.Contains("--delimiter \"/\"", call);
+        Assert.DoesNotContain("--auth-mode", call);
+    }
+
+    [Fact]
+    public async Task ListBlobsAsync_WithKeyAuthMode_PassesKeyAuthMode()
+    {
+        _configurationService.AddBlobAlias("test-blob", new BlobAliasConfig("mystorageaccount", "mycontainer", AuthMode: "key"));
+        _cliExecutor.SetupJsonResult("[]");
+
+        await _service.ListBlobsAsync("test-blob");
+
+        var call = Assert.Single(_cliExecutor.ExecuteCalls);
+        Assert.Contains("--delimiter \"/\"", call);
+        Assert.Contains("--auth-mode key", call);
+        Assert.DoesNotContain("--auth-mode login", call);
     }
 
     [Fact]
@@ -88,6 +116,7 @@ public sealed class BlobServiceTests
         await _service.ListBlobsAsync("test-blob", prefix: "exports/2024/");
 
         var call = Assert.Single(_cliExecutor.ExecuteCalls);
+        Assert.Contains("--delimiter \"/\"", call);
         Assert.Contains("--prefix \"exports/2024/\"", call);
     }
 
@@ -100,6 +129,7 @@ public sealed class BlobServiceTests
         await _service.ListBlobsAsync("test-blob");
 
         var call = Assert.Single(_cliExecutor.ExecuteCalls);
+        Assert.Contains("--delimiter \"/\"", call);
         Assert.DoesNotContain("--prefix", call);
     }
 
@@ -126,7 +156,7 @@ public sealed class BlobServiceTests
         Assert.Contains("--account-name", showCall);
         Assert.Contains("--container-name", showCall);
         Assert.Contains("--name", showCall);
-        Assert.Contains("--auth-mode login", showCall);
+        Assert.DoesNotContain("--auth-mode", showCall);
     }
 
     [Fact]
@@ -155,7 +185,7 @@ public sealed class BlobServiceTests
             Assert.Contains("--container-name", call);
             Assert.Contains("--name", call);
             Assert.Contains("--file", call);
-            Assert.Contains("--auth-mode login", call);
+            Assert.DoesNotContain("--auth-mode", call);
         }
         finally
         {
@@ -209,6 +239,7 @@ public sealed class BlobServiceTests
         var call = Assert.Single(_cliExecutor.ExecuteCalls);
         Assert.Contains("\"mystorageaccount\"", call);
         Assert.Contains("\"mycontainer\"", call);
+        Assert.Contains("--delimiter \"/\"", call);
     }
 
     [Fact]

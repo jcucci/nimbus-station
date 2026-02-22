@@ -1,3 +1,4 @@
+using NimbusStation.Cli.Output;
 using NimbusStation.Infrastructure.Browser;
 using NimbusStation.Infrastructure.Configuration;
 using Spectre.Console;
@@ -47,7 +48,8 @@ public static class AliasBrowserHandler
             return null;
 
         var prompt = new SelectionPrompt<string>()
-            .Title($"[{theme.PromptColor}]Select {providerType} alias:[/]")
+            .Title($"[{theme.PromptColor}]Select {Markup.Escape(providerType)} alias:[/]")
+            .UseConverter(MarkupSanitizer.SanitizeBrackets)
             .PageSize(15)
             .EnableSearch()
             .SearchPlaceholderText("Type to filter...")
@@ -71,6 +73,7 @@ public static class AliasBrowserHandler
             string title = BuildTitle(providerType, breadcrumb, currentNode, theme);
             var prompt = new SelectionPrompt<string>()
                 .Title(title)
+                .UseConverter(MarkupSanitizer.SanitizeBrackets)
                 .PageSize(15)
                 .EnableSearch()
                 .SearchPlaceholderText("Type to filter...")
@@ -121,7 +124,7 @@ public static class AliasBrowserHandler
         {
             string firstDimension = currentNode.Children.Values
                 .FirstOrDefault(c => c.DimensionName is not null)?.DimensionName ?? "alias";
-            return $"[{theme.PromptColor}]Select {firstDimension}:[/]";
+            return $"[{theme.PromptColor}]Select {Markup.Escape(firstDimension)}:[/]";
         }
 
         string path = string.Join(" / ", breadcrumb);
@@ -129,10 +132,10 @@ public static class AliasBrowserHandler
             .FirstOrDefault(c => !c.IsLeaf && c.DimensionName is not null)?.DimensionName
             ?? (currentNode.Children.Values.Any(c => c.IsLeaf) ? "alias" : "item");
 
-        return $"[{theme.PromptColor}]Select {nextDimension}[/] [{theme.DimColor}]({path}):[/]";
+        return $"[{theme.PromptColor}]Select {Markup.Escape(nextDimension)}[/] [{theme.DimColor}]({Markup.Escape(path)}):[/]";
     }
 
-    private static string FormatGoBack() => $"{GoBackSentinel} [Go back]";
+    private static string FormatGoBack() => $"{GoBackSentinel} ← Go back";
 
     private static string FormatBranch(string key, int childCount) =>
         $"  {key} ({childCount})";

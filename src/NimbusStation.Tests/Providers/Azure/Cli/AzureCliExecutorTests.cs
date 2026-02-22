@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging.Abstractions;
 using NimbusStation.Providers.Azure.Cli;
 
 namespace NimbusStation.Tests.Providers.Azure.Cli;
@@ -13,7 +14,7 @@ public class AzureCliExecutorTests
 
     public AzureCliExecutorTests()
     {
-        _executor = new AzureCliExecutor();
+        _executor = new AzureCliExecutor(NullLogger<AzureCliExecutor>.Instance);
     }
 
     [Fact]

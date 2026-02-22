@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace NimbusStation.Providers.Azure.Cli;
 
@@ -15,6 +16,7 @@ public sealed class AzureCliExecutor : IAzureCliExecutor
         PropertyNameCaseInsensitive = true
     };
 
+    private readonly ILogger<AzureCliExecutor> _logger;
     private readonly string _azCommand;
     private bool? _isInstalled;
     private string? _cachedVersion;
@@ -22,8 +24,9 @@ public sealed class AzureCliExecutor : IAzureCliExecutor
     /// <summary>
     /// Initializes a new instance of the <see cref="AzureCliExecutor"/> class.
     /// </summary>
-    public AzureCliExecutor()
+    public AzureCliExecutor(ILogger<AzureCliExecutor> logger)
     {
+        _logger = logger;
         _azCommand = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "az.cmd" : "az";
     }
 
@@ -71,6 +74,8 @@ public sealed class AzureCliExecutor : IAzureCliExecutor
                         stderr.AppendLine(e.Data);
                 }
             };
+
+            _logger.LogDebug("Executing: az {Arguments}", arguments);
 
             process.Start();
             process.BeginOutputReadLine();
