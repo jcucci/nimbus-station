@@ -157,15 +157,23 @@ public static class AzureErrorMapper
 
         // Authorization errors
         if (message.Contains("AuthorizationFailed", StringComparison.OrdinalIgnoreCase) ||
-            message.Contains("does not have authorization", StringComparison.OrdinalIgnoreCase))
+            message.Contains("does not have authorization", StringComparison.OrdinalIgnoreCase) ||
+            message.Contains("do not have the required permissions", StringComparison.OrdinalIgnoreCase))
         {
+            // Extract command from error message if present
+            var details = resourceName is not null ? $"Resource: {resourceName}" : null;
+            var commandIndex = message.IndexOf("\nCommand:", StringComparison.Ordinal);
+            if (commandIndex >= 0)
+                details = (details is not null ? $"{details}\n" : "") + message[commandIndex..].Trim();
+
             return new UserFacingError(
                 ErrorCategory.Authentication,
                 "Access denied",
-                resourceName is not null ? $"Resource: {resourceName}" : null,
+                details,
                 new[]
                 {
-                    "Verify your account has the required permissions",
+                    "Verify your account has the required RBAC role (e.g., Storage Blob Data Reader)",
+                    "Try setting auth-mode = \"key\" in your alias config",
                     "Check that you're logged into the correct Azure subscription"
                 });
         }

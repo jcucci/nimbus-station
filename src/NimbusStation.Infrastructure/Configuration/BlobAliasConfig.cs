@@ -5,4 +5,5 @@ namespace NimbusStation.Infrastructure.Configuration;
 /// </summary>
 /// <param name="Account">The storage account name.</param>
 /// <param name="Container">The blob container name.</param>
-public sealed record BlobAliasConfig(string Account, string Container);
+/// <param name="AuthMode">The Azure CLI auth mode ("login" or "key"). Defaults to "login" if not specified.</param>
+public sealed record BlobAliasConfig(string Account, string Container, string? AuthMode = null);

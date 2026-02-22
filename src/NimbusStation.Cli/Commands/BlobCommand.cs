@@ -28,7 +28,7 @@ public sealed class BlobCommand : ICommand
     public string Description => "Azure Blob Storage operations";
 
     /// <inheritdoc/>
-    public string Usage => "blob [containers | list [prefix] | get <path> | download <path> | search [prefix] [--download]]";
+    public string Usage => "blob [containers | list [prefix] | get <path> | download <path> | search [prefix]]";
 
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands;
@@ -266,9 +266,7 @@ public sealed class BlobCommand : ICommand
         if (!AnsiConsole.Profile.Capabilities.Interactive)
             return CommandResult.Error("Search requires an interactive terminal.");
 
-        // Parse args: [prefix] [--download]
-        var downloadMode = args.Contains("--download", StringComparer.OrdinalIgnoreCase);
-        var prefix = args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal));
+        var prefix = args.Length > 0 ? args[0] : null;
 
         var theme = _configurationService.GetTheme();
         var searchService = new BlobSearchService(_blobService);
@@ -276,7 +274,7 @@ public sealed class BlobCommand : ICommand
 
         try
         {
-            return await handler.RunAsync(activeAlias, prefix, downloadMode, context, cancellationToken);
+            return await handler.RunAsync(activeAlias, prefix, context, cancellationToken);
         }
         catch (InvalidOperationException ex)
         {

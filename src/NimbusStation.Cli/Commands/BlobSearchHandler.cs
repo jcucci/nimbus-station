@@ -43,14 +43,12 @@ public sealed class BlobSearchHandler
     /// </summary>
     /// <param name="aliasName">The blob alias name.</param>
     /// <param name="initialPrefix">The initial search prefix.</param>
-    /// <param name="downloadMode">If true, download selected files instead of outputting to stdout.</param>
     /// <param name="context">The command context.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The command result.</returns>
     public async Task<CommandResult> RunAsync(
         string aliasName,
         string? initialPrefix,
-        bool downloadMode,
         CommandContext context,
         CancellationToken cancellationToken = default)
     {
@@ -93,7 +91,6 @@ public sealed class BlobSearchHandler
                     selection,
                     searchResult,
                     aliasName,
-                    downloadMode,
                     context,
                     cancellationToken);
 
@@ -130,6 +127,7 @@ public sealed class BlobSearchHandler
     {
         var prompt = new SelectionPrompt<string>()
             .Title("Select an item")
+            .UseConverter(MarkupSanitizer.SanitizeBrackets)
             .PageSize(15)
             .EnableSearch()
             .SearchPlaceholderText("Type to filter...")
@@ -153,8 +151,8 @@ public sealed class BlobSearchHandler
 
     private static string FormatSpecialOption(string sentinel) => sentinel switch
     {
-        SearchNewPrefixSentinel => "🔍 [Search with new prefix...]",
-        GoBackSentinel => "⬅️  [Go back to parent]",
+        SearchNewPrefixSentinel => "🔍 Search with new prefix...",
+        GoBackSentinel => "⬅️  Go back to parent",
         _ => sentinel
     };
 
@@ -170,9 +168,9 @@ public sealed class BlobSearchHandler
     private static (string Sentinel, ISearchItem? Item) ParseSelection(string selection, SearchResult result)
     {
         // Check for special options
-        if (selection.Contains("[Search with new prefix...]"))
+        if (selection.Contains("Search with new prefix..."))
             return (SearchNewPrefixSentinel, null);
-        if (selection.Contains("[Go back to parent]"))
+        if (selection.Contains("Go back to parent"))
             return (GoBackSentinel, null);
 
         // Find matching item by name (strip emoji prefix and size suffix)
@@ -190,7 +188,6 @@ public sealed class BlobSearchHandler
         string selection,
         SearchResult searchResult,
         string aliasName,
-        bool downloadMode,
         CommandContext context,
         CancellationToken cancellationToken)
     {
@@ -200,10 +197,13 @@ public sealed class BlobSearchHandler
         switch (sentinel)
         {
             case SearchNewPrefixSentinel:
+                var promptText = string.IsNullOrEmpty(currentPrefix)
+                    ? "Enter new prefix:"
+                    : $"Enter prefix within {currentPrefix}:";
                 var newPrefix = AnsiConsole.Prompt(
-                    new TextPrompt<string>("Enter new prefix:")
+                    new TextPrompt<string>(promptText)
                         .AllowEmpty());
-                return (true, newPrefix);
+                return (true, currentPrefix + newPrefix);
 
             case GoBackSentinel:
                 return (true, SearchNavigator.GetParentPrefix(currentPrefix));
@@ -221,48 +221,56 @@ public sealed class BlobSearchHandler
             return (true, item.FullPath);
         }
 
-        // File selected - output or download
-        await HandleFileSelectionAsync(aliasName, item, downloadMode, context, cancellationToken);
+        // File selected - download and display
+        await HandleFileSelectionAsync(aliasName, item, context, cancellationToken);
         return (false, currentPrefix);
     }
 
     private async Task HandleFileSelectionAsync(
         string aliasName,
         ISearchItem item,
-        bool downloadMode,
         CommandContext context,
         CancellationToken cancellationToken)
     {
         var spinner = new SpinnerService(context.Options);
 
-        if (downloadMode)
-        {
-            var downloadsDir = _sessionService.GetDownloadsDirectory(context.CurrentSession!.TicketId);
-            var downloadedPath = await spinner.RunWithSpinnerAsync(
-                $"Downloading {item.Name}...",
-                () => _blobService.DownloadBlobAsync(aliasName, item.FullPath, downloadsDir, cancellationToken));
+        // Always download to session directory
+        var downloadsDir = _sessionService.GetDownloadsDirectory(context.CurrentSession!.TicketId);
+        var downloadedPath = await spinner.RunWithSpinnerAsync(
+            $"Downloading {item.Name}...",
+            () => _blobService.DownloadBlobAsync(aliasName, item.FullPath, downloadsDir, cancellationToken));
 
-            context.Output.WriteLine($"[{_theme.SuccessColor}]Downloaded to:[/] {downloadedPath}");
+        context.Output.WriteErrorLine($"[{_theme.SuccessColor}]Downloaded to:[/] {downloadedPath}");
+
+        // Read the downloaded file for display
+        var content = await File.ReadAllBytesAsync(downloadedPath, cancellationToken);
+
+        // Check for binary content (null-byte heuristic on first 8KB)
+        var checkLength = Math.Min(content.Length, 8192);
+        bool isBinary = content.AsSpan(0, checkLength).IndexOf((byte)0) >= 0;
+
+        if (isBinary && context.Output.SupportsFormatting)
+        {
+            context.Output.WriteErrorLine($"[{_theme.WarningColor}]Warning: This appears to be a binary file.[/]");
+
+            var prompt = new PromptService(context.Options);
+            if (!prompt.Confirm("Display anyway?", defaultValue: false))
+                return;
         }
-        else
-        {
-            var contentResult = await spinner.RunWithSpinnerAsync(
-                $"Fetching {item.Name}...",
-                () => _blobService.GetBlobContentAsync(aliasName, item.FullPath, cancellationToken));
 
-            // Check for binary content and warn if not piped
-            if (contentResult.IsBinary && !Console.IsOutputRedirected)
+        // If interactive, try JSON syntax highlighting
+        if (context.Output.SupportsFormatting)
+        {
+            var text = System.Text.Encoding.UTF8.GetString(content);
+            var renderable = JsonRenderer.TryCreateRenderable(text, _theme);
+            if (renderable is not null)
             {
-                context.Output.WriteErrorLine($"[{_theme.WarningColor}]Warning: This appears to be a binary file ({contentResult.ContentType}).[/]");
-                context.Output.WriteErrorLine($"[{_theme.WarningColor}]Use --download to save to a file, or pipe the output.[/]");
-
-                var prompt = new PromptService(context.Options);
-                if (!prompt.Confirm("Continue anyway?", defaultValue: false))
-                    return;
+                context.Output.WriteRenderable(renderable);
+                return;
             }
-
-            // Output raw content for piping
-            context.Output.WriteRaw(contentResult.Content);
         }
+
+        // Fallback: raw output (for piping or non-JSON content)
+        context.Output.WriteRaw(content);
     }
 }

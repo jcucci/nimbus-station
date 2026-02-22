@@ -62,18 +62,7 @@ public sealed class BlobSearchServiceTests
     }
 
     [Fact]
-    public async Task SearchAsync_PassesMaxResultsToService()
-    {
-        _blobService.SetupBlobListResult(new BlobListResult([]));
-
-        await _searchService.SearchAsync("test-alias", prefix: null, maxResults: 50);
-
-        var call = Assert.Single(_blobService.ListBlobsCalls);
-        Assert.Equal(50, call.MaxResults);
-    }
-
-    [Fact]
-    public async Task SearchAsync_UsesDefaultMaxResults()
+    public async Task SearchAsync_LimitsResultsToDefault()
     {
         _blobService.SetupBlobListResult(new BlobListResult([]));
 

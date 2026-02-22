@@ -85,7 +85,16 @@ public static class SearchNavigator
         Func<T, long> sizeSelector,
         Func<T, DateTimeOffset> lastModifiedSelector)
     {
-        var normalizedPrefix = currentPrefix ?? string.Empty;
+        var filterPrefix = currentPrefix ?? string.Empty;
+
+        // For display names, only strip up to the last directory separator.
+        // A prefix like "Organizations/888" should filter on the full string
+        // but display names relative to "Organizations/" so we see the full
+        // directory name "88853aa0-.../" rather than the truncated "53aa0-.../".
+        var displayPrefix = filterPrefix.Contains(PathSeparator)
+            ? filterPrefix[..(filterPrefix.LastIndexOf(PathSeparator) + 1)]
+            : string.Empty;
+
         var directories = new HashSet<string>(StringComparer.Ordinal);
         var files = new List<SearchItem>();
 
@@ -94,16 +103,16 @@ public static class SearchNavigator
             var fullPath = pathSelector(item);
 
             // Skip items that don't match the prefix
-            if (!string.IsNullOrEmpty(normalizedPrefix) &&
-                !fullPath.StartsWith(normalizedPrefix, StringComparison.Ordinal))
+            if (!string.IsNullOrEmpty(filterPrefix) &&
+                !fullPath.StartsWith(filterPrefix, StringComparison.Ordinal))
             {
                 continue;
             }
 
-            // Get the relative path after the prefix
-            var relativePath = string.IsNullOrEmpty(normalizedPrefix)
+            // Get the relative path after the display prefix
+            var relativePath = string.IsNullOrEmpty(displayPrefix)
                 ? fullPath
-                : fullPath[normalizedPrefix.Length..];
+                : fullPath[displayPrefix.Length..];
 
             // Check if there's a directory separator in the relative path
             var separatorIndex = relativePath.IndexOf(PathSeparator);
@@ -112,7 +121,7 @@ public static class SearchNavigator
             {
                 // This item is inside a subdirectory - extract the immediate directory
                 var directoryName = relativePath[..(separatorIndex + 1)]; // Include trailing slash
-                var directoryFullPath = normalizedPrefix + directoryName;
+                var directoryFullPath = displayPrefix + directoryName;
                 directories.Add(directoryFullPath);
             }
             else
@@ -131,7 +140,7 @@ public static class SearchNavigator
 
         foreach (var dirPath in directories.OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
         {
-            var displayName = GetDisplayName(dirPath, normalizedPrefix);
+            var displayName = GetDisplayName(dirPath, displayPrefix);
             result.Add(SearchItem.Directory(displayName, dirPath));
         }
 
