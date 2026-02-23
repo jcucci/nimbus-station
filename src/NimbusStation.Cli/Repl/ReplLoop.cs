@@ -304,9 +304,6 @@ public sealed class ReplLoop
         if (command is null)
             return CommandResult.Error($"Unknown command: {commandName}");
 
-        if (!command.CanBePiped)
-            return CommandResult.Error($"Cannot pipe '{commandName}' command");
-
         var args = InputParser.GetArguments(tokens);
 
         if (args.Any(a => a is "--help" or "-h"))
@@ -315,6 +312,9 @@ public sealed class ReplLoop
             CommandHelpRenderer.Render(command, outputWriter, theme);
             return CommandResult.Ok();
         }
+
+        if (!command.CanBePiped)
+            return CommandResult.Error($"Cannot pipe '{commandName}' command");
 
         var context = new CommandContext(_sessionStateManager, outputWriter, _globalOptions);
 
