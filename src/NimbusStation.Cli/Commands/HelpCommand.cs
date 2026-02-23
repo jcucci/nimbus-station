@@ -1,3 +1,4 @@
+using NimbusStation.Cli.Output;
 using NimbusStation.Core.Commands;
 using NimbusStation.Infrastructure.Configuration;
 using Spectre.Console;
@@ -31,6 +32,16 @@ public sealed class HelpCommand : ICommand
     /// <inheritdoc/>
     public bool CanBePiped => false;
 
+    /// <inheritdoc/>
+    public CommandHelpMetadata HelpMetadata { get; } = new()
+    {
+        Examples =
+        [
+            new("help", "Show all available commands"),
+            new("help session", "Show detailed help for the session command")
+        ]
+    };
+
     /// <summary>
     /// Initializes a new instance of the <see cref="HelpCommand"/> class.
     /// </summary>
@@ -60,8 +71,7 @@ public sealed class HelpCommand : ICommand
                 return Task.FromResult(CommandResult.Ok());
             }
 
-            context.Output.WriteLine($"[bold]{command.Name}[/] - {command.Description}");
-            context.Output.WriteLine($"[{theme.DimColor}]Usage:[/] {command.Usage}");
+            CommandHelpRenderer.Render(command, context.Output, theme);
             return Task.FromResult(CommandResult.Ok());
         }
 

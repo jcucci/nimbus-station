@@ -176,6 +176,14 @@ public sealed class ReplLoop
             try
             {
                 var args = InputParser.GetArguments(tokens);
+
+                if (args.Any(a => a is "--help" or "-h"))
+                {
+                    var theme = _configurationService.GetTheme();
+                    CommandHelpRenderer.Render(command, _outputWriter, theme);
+                    continue;
+                }
+
                 var context = new CommandContext(_sessionStateManager, _outputWriter, _globalOptions);
                 var result = await command.ExecuteAsync(args, context, cancellationToken);
 
@@ -296,10 +304,18 @@ public sealed class ReplLoop
         if (command is null)
             return CommandResult.Error($"Unknown command: {commandName}");
 
+        var args = InputParser.GetArguments(tokens);
+
+        if (args.Any(a => a is "--help" or "-h"))
+        {
+            var theme = _configurationService.GetTheme();
+            CommandHelpRenderer.Render(command, outputWriter, theme);
+            return CommandResult.Ok();
+        }
+
         if (!command.CanBePiped)
             return CommandResult.Error($"Cannot pipe '{commandName}' command");
 
-        var args = InputParser.GetArguments(tokens);
         var context = new CommandContext(_sessionStateManager, outputWriter, _globalOptions);
 
         return await command.ExecuteAsync(args, context, cancellationToken);

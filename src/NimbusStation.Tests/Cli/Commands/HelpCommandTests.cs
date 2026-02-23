@@ -112,6 +112,9 @@ public sealed class HelpCommandTests
     [Fact]
     public void CanBePiped_ReturnsFalse() => Assert.False(_command.CanBePiped);
 
+    [Fact]
+    public void HelpMetadata_IsNotNull() => Assert.NotNull(_command.HelpMetadata);
+
     private sealed class TestCommand : ICommand
     {
         public string Name => "test";

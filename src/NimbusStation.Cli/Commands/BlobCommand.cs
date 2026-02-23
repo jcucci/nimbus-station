@@ -33,6 +33,28 @@ public sealed class BlobCommand : ICommand
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands;
 
+    /// <inheritdoc/>
+    public CommandHelpMetadata HelpMetadata { get; } = new()
+    {
+        Subcommands =
+        [
+            new("containers", "List containers in the active storage account"),
+            new("list [prefix]", "List blobs, optionally filtered by prefix"),
+            new("get <path>", "Output blob content to stdout"),
+            new("download <path>", "Download blob to session downloads directory"),
+            new("search [prefix]", "Interactive blob search")
+        ],
+        Examples =
+        [
+            new("blob containers", "List all containers"),
+            new("blob list logs/", "List blobs under the logs/ prefix"),
+            new("blob get config.json", "Print blob content to stdout"),
+            new("blob download data/export.csv", "Download blob to session directory"),
+            new("blob get data.json | jq '.items'", "Pipe blob content to jq")
+        ],
+        Notes = "Requires an active blob or storage context (use 'use blob <alias>' or 'use storage <alias>' first)."
+    };
+
     /// <summary>
     /// Initializes a new instance of the <see cref="BlobCommand"/> class.
     /// </summary>

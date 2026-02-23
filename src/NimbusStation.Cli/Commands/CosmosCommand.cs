@@ -38,6 +38,26 @@ public sealed class CosmosCommand : ICommand
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands;
 
+    /// <inheritdoc/>
+    public CommandHelpMetadata HelpMetadata { get; } = new()
+    {
+        Subcommands =
+        [
+            new("query \"<SQL>\"", "Execute a SQL query against the active container")
+        ],
+        Flags =
+        [
+            new("--max-items N", "Limit results returned (default: 100)")
+        ],
+        Examples =
+        [
+            new("cosmos query \"SELECT * FROM c\"", "Query all documents"),
+            new("cosmos query \"SELECT * FROM c WHERE c.id = 'abc'\"", "Query with filter"),
+            new("cosmos query \"SELECT * FROM c\" --max-items 10", "Query with limit")
+        ],
+        Notes = "Requires an active cosmos context (use 'use cosmos <alias>' first). Results are saved to the session queries directory."
+    };
+
     /// <summary>
     /// Initializes a new instance of the <see cref="CosmosCommand"/> class.
     /// </summary>

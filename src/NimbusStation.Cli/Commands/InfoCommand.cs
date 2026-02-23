@@ -24,6 +24,16 @@ public sealed class InfoCommand : ICommand
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands { get; } = new HashSet<string>();
 
+    /// <inheritdoc/>
+    public CommandHelpMetadata HelpMetadata { get; } = new()
+    {
+        Examples =
+        [
+            new("info", "Show details for the active cosmos and blob context")
+        ],
+        Notes = "Requires an active session with at least one resource context set."
+    };
+
     /// <summary>
     /// Initializes a new instance of the <see cref="InfoCommand"/> class.
     /// </summary>

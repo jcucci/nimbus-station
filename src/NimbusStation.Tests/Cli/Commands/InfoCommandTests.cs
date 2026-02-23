@@ -142,4 +142,7 @@ public sealed class InfoCommandTests
     {
         Assert.Equal("info", _command.Usage);
     }
+
+    [Fact]
+    public void HelpMetadata_IsNotNull() => Assert.NotNull(_command.HelpMetadata);
 }

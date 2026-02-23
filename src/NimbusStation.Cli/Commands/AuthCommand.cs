@@ -27,6 +27,22 @@ public sealed class AuthCommand : ICommand
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands;
 
+    /// <inheritdoc/>
+    public CommandHelpMetadata HelpMetadata { get; } = new()
+    {
+        Subcommands =
+        [
+            new("status", "Show current authentication status"),
+            new("login", "Authenticate with Azure via browser")
+        ],
+        Examples =
+        [
+            new("auth status", "Check if authenticated"),
+            new("auth login", "Open browser to sign in")
+        ],
+        Notes = "Requires Azure CLI (az) to be installed."
+    };
+
     /// <summary>
     /// Initializes a new instance of the <see cref="AuthCommand"/> class.
     /// </summary>

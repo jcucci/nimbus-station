@@ -27,6 +27,23 @@ public sealed class BrowseCommand : ICommand
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands;
 
+    /// <inheritdoc/>
+    public CommandHelpMetadata HelpMetadata { get; } = new()
+    {
+        Subcommands =
+        [
+            new("cosmos", "Browse Cosmos DB aliases"),
+            new("blob", "Browse Blob Storage aliases"),
+            new("storage", "Browse Storage Account aliases")
+        ],
+        Examples =
+        [
+            new("browse cosmos", "Browse and inspect cosmos aliases"),
+            new("browse blob", "Browse and inspect blob aliases")
+        ],
+        Notes = "Read-only browsing — displays alias details without activating them."
+    };
+
     /// <summary>
     /// Initializes a new instance of the <see cref="BrowseCommand"/> class.
     /// </summary>

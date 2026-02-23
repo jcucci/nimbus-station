@@ -29,6 +29,26 @@ public sealed class UseCommand : ICommand
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands;
 
+    /// <inheritdoc/>
+    public CommandHelpMetadata HelpMetadata { get; } = new()
+    {
+        Subcommands =
+        [
+            new("cosmos <alias>", "Set active Cosmos DB context"),
+            new("blob <alias>", "Set active Blob Storage context"),
+            new("storage <alias>", "Set active Storage Account context"),
+            new("clear [provider]", "Clear active context (all or specific provider)")
+        ],
+        Examples =
+        [
+            new("use cosmos prod-db", "Activate the prod-db cosmos alias"),
+            new("use blob logs-store", "Activate the logs-store blob alias"),
+            new("use clear", "Clear all active contexts"),
+            new("use clear cosmos", "Clear only the cosmos context")
+        ],
+        Notes = "When no alias is given, launches an interactive browser to select one."
+    };
+
     /// <summary>
     /// Initializes a new instance of the <see cref="UseCommand"/> class.
     /// </summary>

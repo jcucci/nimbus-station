@@ -32,6 +32,27 @@ public sealed class SessionCommand : ICommand
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands;
 
+    /// <inheritdoc/>
+    public CommandHelpMetadata HelpMetadata { get; } = new()
+    {
+        Subcommands =
+        [
+            new("start <name>", "Start or resume a session"),
+            new("list, ls", "List all sessions"),
+            new("leave", "Leave the active session"),
+            new("resume <name>", "Resume an existing session"),
+            new("delete, rm <name>", "Delete a session and its data"),
+            new("status", "Show active session details")
+        ],
+        Examples =
+        [
+            new("session start GH-123", "Start investigating issue #123"),
+            new("session list", "View all sessions"),
+            new("session status", "Show current session details")
+        ],
+        Notes = "Sessions persist state, history, and artifacts to ~/.nimbus/sessions/."
+    };
+
     /// <summary>
     /// Initializes a new instance of the <see cref="SessionCommand"/> class.
     /// </summary>

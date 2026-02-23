@@ -229,4 +229,7 @@ public sealed class ThemeCommandTests
         Assert.Contains("theme", _outputWriter.GetOutput());
         Assert.Contains("preset", _outputWriter.GetOutput());
     }
+
+    [Fact]
+    public void HelpMetadata_IsNotNull() => Assert.NotNull(_command.HelpMetadata);
 }

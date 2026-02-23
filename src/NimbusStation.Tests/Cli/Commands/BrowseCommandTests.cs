@@ -97,4 +97,7 @@ public sealed class BrowseCommandTests
         Assert.False(result.Success);
         Assert.Contains("interactive terminal", result.Message);
     }
+
+    [Fact]
+    public void HelpMetadata_IsNotNull() => Assert.NotNull(_command.HelpMetadata);
 }

@@ -32,6 +32,26 @@ public sealed class AliasCommand : ICommand
     /// <inheritdoc/>
     public IReadOnlySet<string> Subcommands => _subcommands;
 
+    /// <inheritdoc/>
+    public CommandHelpMetadata HelpMetadata { get; } = new()
+    {
+        Subcommands =
+        [
+            new("list, ls", "List all defined aliases"),
+            new("show <name>", "Show alias expansion details"),
+            new("add <name> \"<expansion>\"", "Define a new alias"),
+            new("remove, rm <name>", "Remove an alias"),
+            new("test <name> [args...]", "Preview alias expansion without executing")
+        ],
+        Examples =
+        [
+            new("alias add q \"cosmos query\"", "Create a shortcut for cosmos query"),
+            new("alias test q \"SELECT * FROM c\"", "Preview what 'q' expands to"),
+            new("alias list", "Show all aliases")
+        ],
+        Notes = "Aliases support positional parameters ({0}, {1}) and built-in variables ({ticket}, {today})."
+    };
+
     /// <summary>
     /// Initializes a new instance of the <see cref="AliasCommand"/> class.
     /// </summary>
